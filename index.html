@@ -429,8 +429,9 @@ const SCHEDE={
 };
 
 /* ===================== STATO ===================== */
-const OGGI=()=>new Date().toISOString().slice(0,10);
-const iso=d=>d.toISOString().slice(0,10);
+// date sempre in ora locale: toISOString userebbe il fuso di Greenwich e in Italia sposterebbe tutto di un giorno
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const OGGI=()=>iso(new Date());
 function lunediDi(d){const x=new Date(d);const g=(x.getDay()+6)%7;x.setDate(x.getDate()-g);x.setHours(12);return x;}
 const DEFAULT={
   profilo:{sesso:'m',eta:24,altezza:180,peso:90,lavoro:1.25,protKg:1.8,grassiKg:0.8,pasti:5},
