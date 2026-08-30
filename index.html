@@ -95,6 +95,17 @@ td.n,th.n{font-family:'IBM Plex Mono',monospace;text-align:right}
 .ex .nm{font-weight:600;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
 .ex .sr{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--grigio)}
 .ex .de{font-size:13px;color:var(--grigio);margin-top:4px;line-height:1.55}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.calh{font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--grigio);text-align:center;padding-bottom:4px}
+.calc{border:1px solid var(--line);border-radius:3px;min-height:82px;padding:4px 5px;cursor:pointer;background:#fff}
+.calc:hover{background:#F7F9F5}
+.calc.sel{outline:2px solid var(--ink);outline-offset:-1px}
+.calc.oggi .caln{background:var(--ink);color:#fff;border-radius:2px;padding:0 4px;display:inline-block}
+.caln{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--grigio);margin-bottom:3px}
+.cala{font-size:10px;line-height:1.25;border-left:3px solid var(--line);padding:1px 0 1px 4px;margin-bottom:2px;background:#F7F9F5}
+.calm{font-family:'IBM Plex Mono',monospace;color:var(--grigio);margin-left:3px}
+.calk{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--grigio);text-align:right}
+@media(max-width:820px){.calc{min-height:58px}.cala{font-size:8px}.calk{display:none}}
 .bar{height:110px;display:flex;align-items:flex-end;gap:3px;border-bottom:1px solid var(--line)}
 .bar i{flex:1;background:var(--ink);opacity:.8;display:block}
 @media(max-width:820px){
@@ -160,6 +171,8 @@ const ATT={
 };
 // deficit applicato per tipo di giornata: più profondo a riposo, leggero quando ti alleni
 const DEF={riposo:-0.20, palestra:-0.10, campo:-0.08};
+const INTENS={leggera:{n:'Più leggero del solito',k:0.8},normale:{n:'Come previsto',k:1},intensa:{n:'Più tirato del solito',k:1.2}};
+const COLORE=t=>t.startsWith('futsal')?'var(--mattone)':t.startsWith('pesi')?'var(--oliva)':'var(--senape)';
 
 /* ============ CALENDARIO STAGIONALE ============ */
 // Preparazione 7 set – 1 ott: campo lun/mer/gio. Campionato: campo lun + partita gio.
@@ -285,92 +298,97 @@ function quanti(o,n){
 
 /* ============ COSA SI MANGIA DAVVERO ============ */
 // valori per la porzione indicata. Sono medie: servono a capire l'ordine di grandezza, non a fare il bilancio.
+// ingredienti singoli con la loro porzione base; la quantità si regola con − e +
+// [categorie, nome, quantità base, unità, kcal, prot, carb, grassi]
 const ALIMENTI=[
- // colazione
- ['col','Latte parz. scremato','250 ml',115,8,12,4],
- ['col','Latte parz. scremato','500 ml',230,17,25,8],
- ['col','Tè o caffè con zucchero','1 tazza',20,0,5,0],
- ['col','Biscotti secchi','40 g, 5 biscotti',165,3,31,4],
- ['col','Biscotti frollini','50 g',240,3,32,11],
- ['col','Fette biscottate e marmellata','4 fette',250,5,50,3],
- ['col','Pane con marmellata o miele','60 g',225,5,45,2],
- ['col','Cereali da colazione','50 g',190,4,38,2],
- ['col','Uova sode','2 uova',155,13,1,11],
- ['col','Fiocchi di latte','150 g',145,18,5,6],
- ['col','Ricotta con miele','150 g',265,17,12,15],
- ['col','Grana a scaglie','50 g',195,17,0,14],
- ['col','Yogurt greco','150 g',90,15,5,1],
- ['col','Cornetto o brioche','1',300,6,38,14],
- ['col','Merendina della macchinetta','1',220,3,30,10],
- ['col','Cappuccino','1',90,5,7,5],
- ['col','Frutta','150 g',70,1,17,0],
- ['col','Banana','1 grande',95,1,24,0],
- // spuntini
- ['sp','Crackers','40 g',175,4,30,5],
- ['sp','Grissini','40 g',170,5,28,4],
- ['sp','Gallette di riso','3',110,2,23,1],
- ['sp','Schiacciatine','40 g',190,5,28,7],
- ['sp','Tarallini','40 g',200,4,26,9],
- ['sp','Mandorle','25 g',145,5,5,13],
- ['sp','Noci','25 g',165,4,3,16],
- ['sp','Cioccolato fondente','20 g',120,2,4,10],
- ['sp','Barretta ai cereali','1',120,2,20,4],
- ['sp','Pavesini','25 g',105,2,19,2],
- ['sp','Frutta','150 g',70,1,17,0],
- ['sp','Banana','1 grande',95,1,24,0],
- ['sp','Snack salato o patatine','1 busta',270,3,26,17],
- // pranzo fuori
- ['pr','Pasta al ragù','porzione bar',550,20,75,17],
- ['pr','Pasta al pomodoro','porzione bar',450,13,75,11],
- ['pr','Pasta o riso freddi','porzione bar',480,12,75,14],
- ['pr','Lasagne','porzione',600,25,50,32],
- ['pr','Tortelli o tortellini','porzione',550,22,65,20],
- ['pr','Piadina prosciutto e formaggio','1',600,25,55,30],
- ['pr','Piadina con affettato magro','1',480,32,50,16],
- ['pr','Panino con pollo o tacchino','1',450,32,45,13],
- ['pr','Panino prosciutto e fontina','200 g',620,30,55,30],
- ['pr','Toast prosciutto e formaggio','1',400,22,35,18],
- ['pr','Pizza margherita al taglio','170 g',450,17,60,15],
- ['pr','Pizza margherita intera','1',850,35,105,30],
- ['pr','Erbazzone','230 g',620,18,50,38],
- ['pr','Gnocco fritto','150 g',550,12,55,32],
- ['pr','Tigelle con salumi','porzione',600,22,55,32],
- ['pr','Focaccia farcita','1',600,18,60,30],
- ['pr','Insalatona con pollo o tonno','1',450,35,25,22],
- ['pr','Insalatona senza carne','1',250,8,20,15],
- ['pr','Insalatissime RioMare','1 confezione',320,20,35,10],
- ['pr','Secondo di carne con contorno','1',400,40,8,22],
- ['pr','Cotoletta con patatine','1',750,35,55,40],
- ['pr','Hamburger con patatine','1',900,40,70,50],
- ['pr','Piatto unico di legumi','porzione',450,20,60,12],
- ['pr','Pane','60 g',160,5,30,1],
- ['pr','Verdura di contorno','1 porzione',60,2,6,3],
- ['pr','Frutta','150 g',70,1,17,0],
- // cena
- ['ce','Pollo o tacchino con verdura','200 g',400,60,8,14],
- ['ce','Carne rossa con verdura','200 g',420,45,8,22],
- ['ce','Lonza di maiale con verdura','200 g',420,50,8,20],
- ['ce','Uova con verdura','3 uova',320,20,6,24],
- ['ce','Salmone con verdura','150 g',350,33,6,22],
- ['ce','Tonno con verdura','2 scatolette',300,42,6,10],
- ['ce','Legumi con verdura','250 g',350,20,45,8],
- ['ce','Formaggio con verdura','100 g',400,25,3,32],
- ['ce','Affettati con verdura','120 g',350,30,4,24],
- ['ce','Pasta','80 g a crudo',290,10,58,2],
- ['ce','Riso','80 g a crudo',280,6,62,1],
- ['ce','Pane','60 g',160,5,30,1],
- ['ce','Patate o purè','250 g',195,5,42,1],
- ['ce','Polenta','250 g',210,5,45,1],
- ['ce','Pizza fuori','1',900,38,110,32],
- ['ce','Olio a crudo','1 cucchiaio',90,0,0,10],
- ['ce','Verdura','1 porzione',60,2,6,3],
- ['ce','Frutta','150 g',70,1,17,0],
- // trasversali
- ['x','Birra media','1',200,2,16,0],
- ['x','Bicchiere di vino','1',125,0,4,0],
- ['x','Dolce o dessert','1 porzione',350,5,45,16],
- ['x','Gelato','1 coppetta',250,5,30,12],
-].map((a,i)=>({i,cat:a[0],n:a[1],u:a[2],k:a[3],p:a[4],c:a[5],f:a[6]}));
+ // carne, pesce, uova
+ [['ce','pr'],'Petto di pollo o tacchino',150,'g',248,46,0,5],
+ [['ce','pr'],'Manzo o vitello magro',150,'g',225,33,0,10],
+ [['ce','pr'],'Lonza di maiale',150,'g',248,40,0,9],
+ [['ce','pr'],'Hamburger',150,'g',300,30,0,20],
+ [['ce','pr'],'Salmone (trancio)',150,'g',310,33,0,19],
+ [['ce','pr'],'Tonno al naturale',1,'scatoletta',90,20,0,1],
+ [['ce','col','pr'],'Uovo',1,'uovo',78,6.5,0.5,5],
+ [['ce','pr','sp'],'Speck',50,'g',150,17,0,9],
+ [['ce','pr','sp'],'Prosciutto crudo',50,'g',130,14,0,8],
+ [['ce','pr','sp'],'Affettato di pollo o tacchino',50,'g',55,10,0.5,1.5],
+ [['ce','pr','sp'],'Bresaola',50,'g',75,16,0,1],
+ // formaggi e latticini
+ [['ce','sp','pr'],'Formaggio stagionato',50,'g',190,13,0,15],
+ [['ce','sp','pr','col'],'Grana o parmigiano',30,'g',118,10,0,9],
+ [['ce','pr'],'Mozzarella',100,'g',250,18,1,19],
+ [['ce','pr'],'Emmental o fontina',50,'g',190,14,0,15],
+ [['ce','col','sp'],'Ricotta',100,'g',146,11,3,10],
+ [['col','sp','ce'],'Fiocchi di latte',100,'g',98,12,3.5,4],
+ [['col','sp'],'Yogurt greco',150,'g',90,15,5,1],
+ [['col'],'Latte',250,'ml',115,8,12,4],
+ [['ce','pr'],'Legumi in scatola',150,'g',130,8,18,2],
+ // carboidrati
+ [['ce','pr','col'],'Pane',50,'g',132,4.5,25,1.5],
+ [['ce','pr'],'Pasta o riso',80,'g a crudo',285,10,58,2],
+ [['ce','pr'],'Patate o purè',200,'g',155,4,34,1],
+ [['ce'],'Polenta',200,'g',170,4,36,1],
+ [['ce','pr'],'Tigella',1,'tigella',145,4,26,3],
+ [['sp','ce','pr'],'Crackers (anche mini)',30,'g',132,3,22,4.5],
+ [['sp','ce'],'Grissini',30,'g',128,4,21,3],
+ [['sp','ce'],'Gallette di riso',2,'gallette',70,1.5,15,0.5],
+ [['sp'],'Schiacciatine o tarallini',30,'g',143,3.5,21,5],
+ [['col'],'Biscotti secchi',30,'g',125,2.5,23,3],
+ [['col'],'Biscotti frollini',30,'g',144,2,19,7],
+ [['col'],'Fette biscottate',2,'fette',80,2.5,15,1.5],
+ [['col'],'Marmellata o miele',15,'g',45,0,11,0],
+ [['col'],'Cereali da colazione',50,'g',190,4,38,2],
+ // verdura
+ [['ce','pr'],'Carote',2,'carote',60,1.5,12,0.5],
+ [['ce','pr'],'Insalata',100,'g',16,1.4,2,0.2],
+ [['ce','pr'],'Verdura cotta',200,'g',60,3,8,1],
+ [['ce','pr'],'Pomodori',150,'g',27,1.4,5,0.3],
+ [['ce','pr'],'Zucchine o melanzane',200,'g',40,3,5,0.5],
+ // frutta
+ [['sp','col','ce','pr'],'Mela',1,'mela',78,0.5,20,0.3],
+ [['sp','col','ce','pr'],'Banana',1,'banana',95,1,24,0.3],
+ [['sp','col','ce','pr'],'Pera',1,'pera',85,0.6,22,0.2],
+ [['sp','col','ce','pr'],'Arancia',1,'arancia',70,1.4,18,0.2],
+ [['sp','col'],'Kiwi',2,'kiwi',90,1.6,22,0.7],
+ [['sp','col'],'Frutti di bosco',150,'g',65,1.5,13,0.6],
+ [['sp','col'],'Uva',150,'g',104,1,27,0.3],
+ // grassi
+ [['ce','pr'],'Olio EVO',1,'cucchiaio',90,0,0,10],
+ [['sp','ce','col'],'Mandorle',20,'g',116,4,4,10],
+ [['sp','ce','col'],'Noci',20,'g',131,3,3,13],
+ [['sp','ce','col'],'Cioccolato fondente',20,'g',120,2,4,10],
+ [['sp','col'],'Burro di arachidi',20,'g',118,5,4,10],
+ [['ce','pr'],'Avocado',70,'g',112,1.4,6,10.5],
+ // piatti già pronti, tipici del pranzo fuori
+ [['pr'],'Pasta al ragù',1,'porzione',550,20,75,17],
+ [['pr'],'Pasta al pomodoro',1,'porzione',450,13,75,11],
+ [['pr','ce'],'Cappellacci, tortelli o tortellini',1,'porzione',550,22,65,20],
+ [['pr','ce'],'Lasagne',1,'porzione',600,25,50,32],
+ [['pr','ce'],'Pizza margherita',1,'pizza intera',850,35,105,30],
+ [['pr'],'Pizza al taglio',1,'trancio',400,15,53,13],
+ [['pr'],'Piadina farcita',1,'piadina',600,25,55,30],
+ [['pr'],'Panino con pollo o tacchino',1,'panino',450,32,45,13],
+ [['pr'],'Panino con salumi e formaggio',1,'panino',620,30,55,30],
+ [['pr'],'Toast prosciutto e formaggio',1,'toast',400,22,35,18],
+ [['pr'],'Erbazzone',150,'g',400,12,32,25],
+ [['pr'],'Gnocco fritto',100,'g',365,8,37,21],
+ [['pr'],'Insalatona con pollo o tonno',1,'porzione',450,35,25,22],
+ [['pr'],'Insalatissime RioMare',1,'confezione',320,20,35,10],
+ [['pr'],'Cotoletta con patatine',1,'porzione',750,35,55,40],
+ [['pr'],'Hamburger con patatine',1,'porzione',900,40,70,50],
+ // colazione fuori casa e sfizi
+ [['col'],'Cornetto o brioche',1,'cornetto',300,6,38,14],
+ [['col','sp'],'Merendina della macchinetta',1,'merendina',220,3,30,10],
+ [['col'],'Cappuccino',1,'tazza',90,5,7,5],
+ [['col'],'Zucchero nel tè o caffè',1,'cucchiaino',20,0,5,0],
+ [['x'],'Birra media',1,'birra',200,2,16,0],
+ [['x'],'Bicchiere di vino',1,'bicchiere',125,0,4,0],
+ [['x'],'Dolce o dessert',1,'porzione',350,5,45,16],
+ [['x'],'Gelato',1,'coppetta',250,5,30,12],
+ [['x'],'Patatine o snack salato',1,'busta',270,3,26,17],
+].map((a,i)=>({i,cat:a[0],n:a[1],qb:a[2],ub:a[3],k:a[4],p:a[5],c:a[6],f:a[7]}));
+const qtaTesto=(o,m)=>{const v=o.qb*m; return (Number.isInteger(v)?v:Math.round(v*10)/10)+' '+o.ub;};
+
 const KCAL_PORZ={palmi:145,pugni:135,frutti:70,pollici:99};
 const pl=(n,a,b)=>n+' '+(n===1?a:b);
 const pesoPasto=m=>m.palmi*KCAL_PORZ.palmi+m.pugni*KCAL_PORZ.pugni+m.frutti*KCAL_PORZ.frutti+m.pollici*KCAL_PORZ.pollici;
@@ -436,10 +454,13 @@ function attivitaDi(st,data){
 function giornoCalc(st,data){
   const p=st.profilo, base=bmr(p), att=attivitaDi(st,data);
   const reg=st.registro[data]||{};
-  const eff=att.map((a,i)=>({...a, fatto: reg.fatti && reg.fatti[i]!==undefined ? reg.fatti[i] : true,
-                                   min: reg.minuti && reg.minuti[i]!==undefined ? reg.minuti[i] : a.min}));
+  const eff=att.map((a,i)=>({...a, idx:i,
+    fatto: reg.fatti && reg.fatti[i]!==undefined ? reg.fatti[i] : true,
+    confermato: !!(reg.fatti && reg.fatti[i]===true),
+    min: reg.minuti && reg.minuti[i]!==undefined ? reg.minuti[i] : a.min,
+    inten: (reg.intens && reg.intens[i]) || 'normale'}));
   const svolte=eff.filter(a=>a.fatto);
-  const extra=svolte.reduce((s,a)=>s+kcalAtt(a,p.peso),0);
+  const extra=svolte.reduce((s,a)=>s+Math.round(kcalAtt(a,p.peso)*INTENS[a.inten].k),0);
   const tdee=Math.round(base*p.lavoro+extra);
   const campo=svolte.some(a=>a.t.startsWith('futsal'));
   const tipo = !svolte.length ? 'riposo' : campo ? 'campo' : 'palestra';
@@ -562,6 +583,7 @@ function App(){
   const [ancora,setAncora]=useState(()=>lunediDi(new Date()));
   const [sel,setSel]=useState(OGGI());
   const [apri,setApri]=useState(null);
+  const [mese,setMese]=useState(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1);});
   const [q,setQ]=useState('');
   const [sync,setSync]=useState({stato:FIREBASE.projectId?'collego':'locale',quando:null});
   const primoCaricamento=React.useRef(true);
@@ -614,7 +636,7 @@ function App(){
          fase==='prep'?'Campo lunedì, mercoledì, giovedì · fino al 1 ottobre':
          fase==='camp'?'Allenamento lunedì · partita giovedì':'Transizione verso il campionato'}</div>
     </div>
-    <nav>{[['oggi','Oggi'],['settimana','Settimana'],['pasti','Pasti'],['palestra','Palestra'],['peso','Peso'],['guida','Guida'],['imp','Impostazioni']].map(([k,l])=>
+    <nav>{[['oggi','Oggi'],['settimana','Settimana'],['pasti','Pasti'],['calendario','Calendario'],['palestra','Palestra'],['peso','Peso'],['guida','Guida'],['imp','Impostazioni']].map(([k,l])=>
       <button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{l}</button>)}</nav>
   </div></header>
   <main><div className="wrap">
@@ -649,7 +671,7 @@ function App(){
           <input type="number" value={a.min} step="5" style={{maxWidth:90}} onChange={e=>{const m={...(reg.minuti||{})};m[i]=+e.target.value;setReg(oggi,{minuti:m});}}/>
           <span className="note">min</span>
           <div className="spacer"/>
-          <span className="mono note">{a.fatto?'+'+kcalAtt(a,st.profilo.peso)+' kcal':'—'}</span>
+          <span className="mono note">{a.fatto?'+'+Math.round(kcalAtt(a,st.profilo.peso)*INTENS[a.inten].k)+' kcal':'—'}</span>
           <button className={'btn small '+(a.fatto?'on':'ghost')} onClick={()=>{const f={...(reg.fatti||{})};f[i]=!a.fatto;setReg(oggi,{fatti:f});}}>{a.fatto?'Fatto':'Saltato'}</button>
         </div>):<div className="note">Niente in programma oggi.</div>}
         <div className="row" style={{marginTop:12}}>
@@ -668,16 +690,19 @@ function App(){
         <h3>Cosa hai mangiato</h3>
         <div className="sub">Non serve precisione: scegli la voce più vicina a quello che hai preso. Se un pasto salta, premi "Saltato": quello che avanza si sposta sui pasti che restano, senza perdersi.</div>
         {pasti.map(m=>{
-          const vr=(reg.pasti||{})[m.id];
+          const vr=(reg.pasti||{})[m.id]; const v0=vr&&Array.isArray(vr.voci)?vr:{voci:[]};
           const v=vr?{k:0,p:0,c:0,f:0,...vr,voci:Array.isArray(vr.voci)?vr.voci:(vr.k?[{n:'Registrato',k:vr.k,p:vr.p||0,c:vr.c||0,f:vr.f||0}]:[])}
                    :{voci:[],k:0,p:0,c:0,f:0};
           const aperto=apri===m.id;
           const scrivi=voci=>{
-            const t=voci.reduce((s2,x)=>({k:s2.k+x.k,p:s2.p+x.p,c:s2.c+x.c,f:s2.f+x.f}),{k:0,p:0,c:0,f:0});
+            const t=voci.reduce((s2,x)=>{const mm=x.m||1;
+              return {k:s2.k+Math.round(x.k*mm),p:s2.p+Math.round(x.p*mm),c:s2.c+Math.round(x.c*mm),f:s2.f+Math.round(x.f*mm)};},{k:0,p:0,c:0,f:0});
             setReg(oggi,{pasti:{...(reg.pasti||{}),[m.id]:{voci,...t}}});
           };
-          const lista=ALIMENTI.filter(a=>(a.cat===CAT_PASTO[m.id]||a.cat==='x')&&
-            (!q||a.n.toLowerCase().includes(q.toLowerCase())));
+          const cambiaQ=(i,d)=>{const v=v0.voci.map((x,j)=>j===i?{...x,m:Math.max(0.5,Math.round(((x.m||1)+d)*2)/2)}:x);scrivi(v);};
+          // con la ricerca cerco fra tutti gli alimenti, altrimenti mostro quelli tipici del pasto
+          const lista=q ? ALIMENTI.filter(a=>a.n.toLowerCase().includes(q.toLowerCase()))
+                        : ALIMENTI.filter(a=>a.cat.includes(CAT_PASTO[m.id])||a.cat.includes('x'));
           return <div className="meal" key={m.id}>
             <div className="mealhead">
               <span className="t">{m.n}</span>
@@ -697,25 +722,30 @@ function App(){
                 t[0].k=Math.round(t[0].p*4+t[0].c*4+t[0].f*9); scrivi(t);}}>Come proposto</button>}
             </div>
             {(v.voci.length||aperto)&&<div className="mealbody">
-              {v.voci.map((x,i)=><div className="opt" key={i}>
-                <span>{x.n}{x.u?' — '+x.u:''}</span>
-                <span className="q">{x.k} kcal
-                  <button className="btn ghost small" style={{marginLeft:8,padding:'1px 7px'}}
+              {v.voci.map((x,i)=>{const mm=x.m||1, o=ALIMENTI.find(z=>z.n===x.n);
+                return <div className="opt" key={i}>
+                <span>{x.n}<span className="note"> · {o?qtaTesto(o,mm):(x.u||'')}</span></span>
+                <span className="q">
+                  {Math.round(x.k*mm)} kcal
+                  <button className="btn ghost small" style={{marginLeft:8,padding:'1px 7px'}} onClick={()=>cambiaQ(i,-0.5)}>−</button>
+                  <button className="btn ghost small" style={{marginLeft:3,padding:'1px 7px'}} onClick={()=>cambiaQ(i,0.5)}>+</button>
+                  <button className="btn ghost small" style={{marginLeft:3,padding:'1px 7px'}}
                     onClick={()=>scrivi(v.voci.filter((_,j)=>j!==i))}>×</button></span>
-              </div>)}
+              </div>;})}
               {aperto&&<>
                 <div className="hr" style={{margin:'12px 0'}}/>
-                <input placeholder="Cerca — pizza, piadina, crackers…" value={q} onChange={e=>setQ(e.target.value)} style={{marginBottom:10}}/>
+                <input placeholder="Cerca fra tutti gli alimenti — salmone, speck, carote…" value={q} onChange={e=>setQ(e.target.value)} style={{marginBottom:10}}/>
                 <div className="row" style={{gap:6}}>
-                  {lista.slice(0,26).map(a=><span className="chip" key={a.i}
-                    onClick={()=>scrivi([...v.voci,{n:a.n,u:a.u,k:a.k,p:a.p,c:a.c,f:a.f}])}>+ {a.n}</span>)}
+                  {lista.slice(0,30).map(a=><span className="chip" key={a.i}
+                    onClick={()=>{setQ('');scrivi([...v.voci,{n:a.n,m:1,k:a.k,p:a.p,c:a.c,f:a.f}]);}}>
+                    + {a.n} <span className="note">{a.qb} {a.ub}</span></span>)}
                   {!lista.length&&<span className="note">Niente con questo nome. Usa le porzioni qui sotto.</span>}
                 </div>
                 <div className="hr" style={{margin:'12px 0'}}/>
-                <div className="note" style={{marginBottom:7}}>Oppure a porzioni, se non trovi il piatto:</div>
+                <div className="note" style={{marginBottom:7}}>Aggiungi quante voci vuoi, poi regola le quantità con − e +. Se non trovi l'alimento, usa le porzioni:</div>
                 <div className="row" style={{gap:6}}>
                   {PORZ_RAPIDE.map((a,i)=><span className="chip" key={i}
-                    onClick={()=>scrivi([...v.voci,{n:a.n,k:a.k,p:a.p,c:a.c,f:a.f}])}>+ {a.n}</span>)}
+                    onClick={()=>scrivi([...v.voci,{n:a.n,m:1,u:a.n,k:a.k,p:a.p,c:a.c,f:a.f}])}>+ {a.n}</span>)}
                 </div>
               </>}
             </div>}
@@ -891,6 +921,112 @@ function App(){
             I {(a.palmiTeorici-a.palmi)*PORZ.palmo} g di proteine che restano fuori non si recuperano oggi, e va bene così — succede quando salti dei pasti e tutto il fabbisogno si schiaccia sulla cena. Conta la media della settimana.</div>}
         </div>}
       </div>;})}
+    </>;
+  })()}
+
+
+  {/* ---------------- CALENDARIO ---------------- */}
+  {tab==='calendario'&&(()=>{
+    const primo=new Date(mese), ultimo=new Date(mese.getFullYear(),mese.getMonth()+1,0);
+    const offset=(primo.getDay()+6)%7;
+    const celle=[];
+    for(let i=0;i<offset;i++) celle.push(null);
+    for(let d=1;d<=ultimo.getDate();d++) celle.push(new Date(mese.getFullYear(),mese.getMonth(),d));
+    const gg=celle.map(d=>d?giornoCalc(st,iso(d)):null);
+    // consuntivo del mese
+    let previste=0,fatte=0,saltate=0,daConfermare=0,kcalTot=0;
+    gg.forEach(g=>{if(!g)return; g.att.forEach(a=>{previste++;
+      if(!a.fatto)saltate++; else if(a.confermato)fatte++; else if(g.data<oggi)daConfermare++;});
+      kcalTot+=g.extra;});
+    const gSelC=giornoCalc(st,sel);
+    const attSel=attivitaDi(st,sel), regSel=st.registro[sel]||{};
+    const scriviAtt=(nuove)=>up({override:{...st.override,[sel]:nuove}});
+    const setCampo=(campo,i,v)=>{const o={...(regSel[campo]||{})};o[i]=v;setReg(sel,{[campo]:o});};
+    return<>
+      <div className="card">
+        <div className="row">
+          <div><h2>{primo.toLocaleDateString('it-IT',{month:'long',year:'numeric'})}</h2>
+            <div className="sub" style={{marginBottom:0}}>Clicca un giorno per pianificarlo o per segnare com'è andata.</div></div>
+          <div className="spacer"/>
+          <button className="btn ghost small" onClick={()=>setMese(new Date(mese.getFullYear(),mese.getMonth()-1,1))}>←</button>
+          <button className="btn ghost small" onClick={()=>{const d=new Date();setMese(new Date(d.getFullYear(),d.getMonth(),1));}}>Questo mese</button>
+          <button className="btn ghost small" onClick={()=>setMese(new Date(mese.getFullYear(),mese.getMonth()+1,1))}>→</button>
+        </div>
+        <div className="hr"/>
+        <div className="cal">
+          {G3.map(d=><div key={d} className="calh">{d}</div>)}
+          {celle.map((d,i)=>{
+            if(!d) return <div key={i}/>;
+            const g=gg[i], data=iso(d), passato=data<oggi;
+            return <div key={i} className={'calc'+(sel===data?' sel':'')+(data===oggi?' oggi':'')} onClick={()=>setSel(data)}>
+              <div className="caln">{d.getDate()}</div>
+              {g.att.map((a,j)=><div key={j} className="cala" style={{borderLeftColor:COLORE(a.t),
+                  opacity:!a.fatto?0.4:1, textDecoration:!a.fatto?'line-through':'none'}}>
+                {ATT[a.t].n.replace('Allenamento futsal','Futsal').replace('Palestra ','Pal. ')}
+                <span className="calm">{a.min}′{a.confermato?' ✓':passato?' ?':''}</span>
+              </div>)}
+              {!!g.extra&&<div className="calk">+{g.extra}</div>}
+            </div>;
+          })}
+        </div>
+        <div className="legend">
+          <span><i className="dot" style={{background:'var(--mattone)'}}/>Futsal</span>
+          <span><i className="dot" style={{background:'var(--oliva)'}}/>Palestra</span>
+          <span><i className="dot" style={{background:'var(--senape)'}}/>Altro</span>
+          <span style={{marginLeft:'auto'}}>✓ confermato · ? da segnare</span>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="grid g4">
+          <Kpi l="Sedute in programma" v={previste} u="nel mese"/>
+          <Kpi l="Confermate" v={fatte} u="" cls="f"/>
+          <Kpi l="Saltate" v={saltate} u="" cls="p"/>
+          <Kpi l="Da segnare" v={daConfermare} u="" cls="c"/>
+        </div>
+        {daConfermare>0&&<div className="note" style={{marginTop:12}}>Le sedute non segnate contano come fatte nel calcolo delle calorie. Se ne hai saltata qualcuna, marcala: il target di quei giorni si abbassa e il bilancio della settimana si corregge.</div>}
+      </div>
+
+      <div className="card">
+        <h3>{new Date(sel+'T12:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'})}</h3>
+        <div className="sub">{st.override[sel]?'Giornata personalizzata.':'Segue il programma della stagione.'} Fabbisogno {gSelC.tdee} kcal · target {gSelC.target} kcal</div>
+        {attSel.length?attSel.map((a,i)=>{
+          const eff=gSelC.att[i];
+          return <div key={i} style={{borderTop:'1px solid var(--line)',padding:'12px 0'}}>
+            <div className="actrow" style={{gridTemplateColumns:'1.5fr .7fr .9fr auto'}}>
+              <select value={a.t} onChange={e=>{const n=structuredClone(attSel);n[i].t=e.target.value;n[i].min=ATT[e.target.value].def;scriviAtt(n);}}>
+                {Object.entries(ATT).map(([k,v])=><option key={k} value={k}>{v.n}</option>)}
+              </select>
+              <input type="number" step="5" value={eff.min} onChange={e=>setCampo('minuti',i,+e.target.value)}/>
+              <select value={a.q||'sera'} onChange={e=>{const n=structuredClone(attSel);n[i].q=e.target.value;scriviAtt(n);}}>
+                <option value="mattina">Mattina</option><option value="pomeriggio">Pomeriggio</option><option value="sera">Sera</option>
+              </select>
+              <button className="btn ghost small" onClick={()=>{const n=structuredClone(attSel);n.splice(i,1);scriviAtt(n);}}>Togli</button>
+            </div>
+            <div className="row" style={{marginTop:8}}>
+              <button className={'btn small '+(eff.confermato?'on':'ghost')} onClick={()=>setCampo('fatti',i,true)}>Fatto</button>
+              <button className={'btn small '+(!eff.fatto?'on':'ghost')} onClick={()=>setCampo('fatti',i,false)}>Saltato</button>
+              <button className="btn ghost small" onClick={()=>{const o={...(regSel.fatti||{})};delete o[i];setReg(sel,{fatti:o});}}>Da fare</button>
+              {eff.fatto&&<select value={eff.inten} style={{maxWidth:210}} onChange={e=>setCampo('intens',i,e.target.value)}>
+                {Object.entries(INTENS).map(([k,v])=><option key={k} value={k}>{v.n}</option>)}</select>}
+              <div className="spacer"/>
+              <span className="mono note">{eff.fatto?'+'+Math.round(kcalAtt(eff,st.profilo.peso)*INTENS[eff.inten].k)+' kcal':'non conteggiato'}</span>
+            </div>
+            {eff.min!==a.min&&<div className="note" style={{marginTop:6}}>Previsti {a.min} minuti, segnati {eff.min}.</div>}
+          </div>;
+        }):<div className="note">Giorno di riposo.</div>}
+        <div className="hr"/>
+        <div className="row">
+          <select id="addcal" defaultValue="pesi_b" style={{maxWidth:230}}>
+            {Object.entries(ATT).map(([k,v])=><option key={k} value={k}>{v.n}</option>)}</select>
+          <button className="btn ghost small" onClick={()=>{const t=document.getElementById('addcal').value;
+            scriviAtt([...attSel,{t,min:ATT[t].def,q:'sera'}]);}}>Aggiungi</button>
+          <button className="btn ghost small" onClick={()=>scriviAtt([])}>Metti a riposo</button>
+          <div className="spacer"/>
+          {st.override[sel]&&<button className="btn ghost small" onClick={()=>{const o={...st.override};delete o[sel];up({override:o});
+            const r={...st.registro};if(r[sel]){const c={...r[sel]};delete c.fatti;delete c.minuti;delete c.intens;r[sel]=c;up({registro:r});}}}>Torna al programma</button>}
+        </div>
+      </div>
     </>;
   })()}
 
