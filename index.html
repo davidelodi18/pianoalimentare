@@ -108,6 +108,23 @@ td.n,th.n{font-family:'IBM Plex Mono',monospace;text-align:right}
 @media(max-width:820px){.calc{min-height:58px}.cala{font-size:8px}.calk{display:none}}
 .bar{height:110px;display:flex;align-items:flex-end;gap:3px;border-bottom:1px solid var(--line)}
 .bar i{flex:1;background:var(--ink);opacity:.8;display:block}
+@media print{
+  @page{size:A4;margin:14mm}
+  body{background:#fff;font-size:10.5pt}
+  header,nav,.noprint{display:none!important}
+  main{padding:0}
+  .wrap{max-width:none;padding:0}
+  .card{border:none;padding:0;margin:0 0 14px}
+  .card+.card{margin-top:0}
+  table{font-size:9.5pt}
+  th,td{padding:4px 5px}
+  .kpi{border-left-width:2px}
+  .kpi .v{font-size:16pt}
+  .rep-h{display:block!important}
+  .grid{break-inside:avoid}
+  .card,tr{break-inside:avoid}
+}
+.rep-h{display:none}
 @media(max-width:820px){
   .g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:1fr}.g2{grid-template-columns:1fr}
   .brand h1{font-size:28px}.fase{display:none}
@@ -638,7 +655,7 @@ function App(){
          fase==='prep'?'Campo lunedì, mercoledì, giovedì · fino al 1 ottobre':
          fase==='camp'?'Allenamento lunedì · partita giovedì':'Transizione verso il campionato'}</div>
     </div>
-    <nav>{[['oggi','Oggi'],['settimana','Settimana'],['pasti','Pasti'],['spesa','Spesa'],['calendario','Calendario'],['palestra','Palestra'],['peso','Peso'],['guida','Guida'],['imp','Impostazioni']].map(([k,l])=>
+    <nav>{[['oggi','Oggi'],['settimana','Settimana'],['pasti','Pasti'],['spesa','Spesa'],['calendario','Calendario'],['palestra','Palestra'],['peso','Peso'],['report','Report'],['guida','Guida'],['imp','Impostazioni']].map(([k,l])=>
       <button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{l}</button>)}</nav>
   </div></header>
   <main><div className="wrap">
@@ -1195,6 +1212,102 @@ function App(){
         <div className="note" style={{marginTop:12}}>Questa è l'unica correzione basata su dati reali invece che su stime: le formule sbagliano tranquillamente del dieci per cento, la bilancia no. Aspetta due settimane piene prima di intervenire.</div>
       </>:<div className="note" style={{marginTop:12}}>Registra almeno due settimane per vedere se il piano è tarato bene.</div>}
     </div>;
+  })()}
+
+
+  {/* ---------------- REPORT ---------------- */}
+  {tab==='report'&&(()=>{
+    const fine=new Date(ancora); fine.setDate(fine.getDate()+6);
+    const per=g=>({g,c:consumato(st,g.data)});
+    const righe=giorni.map(per);
+    const regis=righe.filter(r=>r.c.k>0);
+    const totT=giorni.reduce((a,g)=>a+g.target,0);
+    const totF=giorni.reduce((a,g)=>a+g.tdee,0);
+    const totC=righe.reduce((a,r)=>a+r.c.k,0);
+    const totP=righe.reduce((a,r)=>a+r.c.p,0);
+    const protMedia=regis.length?Math.round(totP/regis.length):0;
+    const scarto=regis.length?totC-regis.reduce((a,r)=>a+r.g.target,0):0;
+    // allenamenti
+    let prev=0,fatte=0,salt=0,minuti=0,kcalAtt2=0;
+    giorni.forEach(g=>g.att.forEach(a=>{prev++;
+      if(!a.fatto){salt++;} else {fatte++;minuti+=a.min;kcalAtt2+=Math.round(kcalAtt(a,st.profilo.peso)*INTENS[a.inten].k);}}));
+    // peso
+    const pesiSett=st.pesi.filter(x=>x.d>=giorni[0].data&&x.d<=giorni[6].data).sort((a,b)=>a.d.localeCompare(b.d));
+    const media=a=>a.length?a.reduce((s2,x)=>s2+x.p,0)/a.length:0;
+    const mSett=media(pesiSett);
+    const prima=st.pesi.filter(x=>x.d<giorni[0].data).sort((a,b)=>a.d.localeCompare(b.d)).slice(-7);
+    const mPrima=media(prima);
+    const attesa=(totT-totF)/7700;
+    const fmtD=d=>new Date(d+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'long'});
+    return<>
+      <div className="card noprint">
+        <div className="row"><div><h2>Report settimanale</h2>
+          <div className="sub" style={{marginBottom:0}}>Quello che vedi qui sotto è la pagina che verrà stampata. Dalla finestra di stampa scegli "Salva come PDF".</div></div>
+          <div className="spacer"/>
+          <button className="btn ghost small" onClick={()=>{const d=new Date(ancora);d.setDate(d.getDate()-7);setAncora(d);}}>←</button>
+          <button className="btn ghost small" onClick={()=>setAncora(lunediDi(new Date()))}>Questa settimana</button>
+          <button className="btn ghost small" onClick={()=>{const d=new Date(ancora);d.setDate(d.getDate()+7);setAncora(d);}}>→</button>
+          <button className="btn" onClick={()=>window.print()}>Esporta PDF</button>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="rep-h" style={{borderBottom:'2px solid var(--ink)',paddingBottom:8,marginBottom:14}}>
+          <div className="eyebrow" style={{color:'var(--grigio)'}}>Piano · report settimanale</div>
+          <h2 style={{fontSize:20}}>{fmtD(giorni[0].data)} — {fmtD(giorni[6].data)}</h2>
+        </div>
+        <h3 style={{marginBottom:10}}>Il bilancio</h3>
+        <div className="grid g4">
+          <Kpi l="Target della settimana" v={totT.toLocaleString('it-IT')} u="kcal"/>
+          <Kpi l="Registrato" v={totC?totC.toLocaleString('it-IT'):'—'} u={regis.length+' giorni su 7'} cls="c"/>
+          <Kpi l="Scarto sui giorni segnati" v={regis.length?(scarto>0?'+':'')+scarto.toLocaleString('it-IT'):'—'} u="kcal" cls={scarto>0?'p':'f'}/>
+          <Kpi l="Proteine, media al giorno" v={protMedia||'—'} u={'g su '+giorni[0].prot} cls="p"/>
+        </div>
+      </div>
+
+      <div className="card">
+        <h3 style={{marginBottom:10}}>Giorno per giorno</h3>
+        <table><thead><tr><th>Giorno</th><th>Attività</th><th className="n">Target</th><th className="n">Mangiato</th><th className="n">Scarto</th><th className="n">Proteine</th></tr></thead>
+        <tbody>{righe.map((r,i)=>{const sc=r.c.k?r.c.k-r.g.target:null;
+          return <tr key={i}>
+            <td><b>{G3[i]}</b> <span className="note">{r.g.data.slice(8)}/{r.g.data.slice(5,7)}</span></td>
+            <td className="note">{r.g.att.map(a=>ATT[a.t].n+(a.fatto?'':' (saltato)')).join(', ')||'riposo'}</td>
+            <td className="n">{r.g.target}</td><td className="n">{r.c.k||'—'}</td>
+            <td className={'n '+(sc===null?'':sc>0?'neg':'pos')}>{sc===null?'—':(sc>0?'+':'')+sc}</td>
+            <td className="n">{r.c.p?r.c.p+' / '+r.g.prot:'—'}</td></tr>;})}
+          <tr><td colSpan="2"><b>Totale</b></td><td className="n"><b>{totT.toLocaleString('it-IT')}</b></td>
+            <td className="n"><b>{totC?totC.toLocaleString('it-IT'):'—'}</b></td><td className="n"/><td className="n"/></tr>
+        </tbody></table>
+      </div>
+
+      <div className="card">
+        <h3 style={{marginBottom:10}}>Allenamenti</h3>
+        <div className="grid g4">
+          <Kpi l="In programma" v={prev} u="sedute"/>
+          <Kpi l="Svolte" v={fatte} u="" cls="f"/>
+          <Kpi l="Saltate" v={salt} u="" cls="p"/>
+          <Kpi l="Tempo sul campo" v={Math.round(minuti/60*10)/10} u="ore"/>
+        </div>
+        <div className="note" style={{marginTop:10}}>Calorie spese in allenamento: {kcalAtt2.toLocaleString('it-IT')} kcal sulla settimana. Fabbisogno complessivo {totF.toLocaleString('it-IT')} kcal.</div>
+      </div>
+
+      <div className="card">
+        <h3 style={{marginBottom:10}}>Peso</h3>
+        <div className="grid g3">
+          <Kpi l="Media della settimana" v={mSett?mSett.toFixed(1):'—'} u="kg"/>
+          <Kpi l="Variazione reale" v={mSett&&mPrima?((mSett-mPrima>0?'+':'')+(mSett-mPrima).toFixed(2)):'—'} u="kg" cls="p"/>
+          <Kpi l="Variazione attesa" v={(attesa>0?'+':'')+attesa.toFixed(2)} u="kg" cls="f"/>
+        </div>
+        <div className="note" style={{marginTop:10}}>
+          {pesiSett.length?('Pesate registrate: '+pesiSett.length+' su 7. '):'Nessuna pesata questa settimana. '}
+          {mSett&&mPrima
+            ? (Math.abs((mSett-mPrima)-attesa)<0.25
+               ? 'Il peso si muove come previsto: nessuna correzione necessaria.'
+               : 'Reale e attesa si discostano di '+Math.abs((mSett-mPrima)-attesa).toFixed(2)+' kg. Se si conferma anche la prossima settimana, sposta il target di 150 kcal al giorno.')
+            : 'Servono due settimane di pesate per confrontare il reale con l\'atteso.'}
+        </div>
+      </div>
+    </>;
   })()}
 
   {/* ---------------- GUIDA ---------------- */}
