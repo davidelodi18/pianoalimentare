@@ -584,6 +584,7 @@ function App(){
   const [ancora,setAncora]=useState(()=>lunediDi(new Date()));
   const [sel,setSel]=useState(OGGI());
   const [apri,setApri]=useState(null);
+  const [gAtt,setGAtt]=useState(OGGI);
   const [mese,setMese]=useState(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1);});
   const [q,setQ]=useState('');
   const [sync,setSync]=useState({stato:FIREBASE.projectId?'collego':'locale',quando:null});
@@ -637,23 +638,30 @@ function App(){
          fase==='prep'?'Campo lunedì, mercoledì, giovedì · fino al 1 ottobre':
          fase==='camp'?'Allenamento lunedì · partita giovedì':'Transizione verso il campionato'}</div>
     </div>
-    <nav>{[['oggi','Oggi'],['settimana','Settimana'],['pasti','Pasti'],['calendario','Calendario'],['palestra','Palestra'],['peso','Peso'],['guida','Guida'],['imp','Impostazioni']].map(([k,l])=>
+    <nav>{[['oggi','Oggi'],['settimana','Settimana'],['pasti','Pasti'],['spesa','Spesa'],['calendario','Calendario'],['palestra','Palestra'],['peso','Peso'],['guida','Guida'],['imp','Impostazioni']].map(([k,l])=>
       <button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{l}</button>)}</nav>
   </div></header>
   <main><div className="wrap">
 
   {/* ---------------- OGGI ---------------- */}
   {tab==='oggi'&&(()=>{
-    const g=gOggi;
-    const {reg,cons,targetAdj,res,pasti,stato,adattato}=statoGiornata(st,g,comp.perGiorno);
+    const g=giornoCalc(st,gAtt), oggiQ=gAtt===oggi;
+    const {reg,cons,targetAdj,res,pasti,stato,adattato}=statoGiornata(st,g,oggiQ?comp.perGiorno:0);
+    const spostaG=(n)=>{const d=new Date(gAtt+'T12:00:00');d.setDate(d.getDate()+n);setGAtt(iso(d));setApri(null);};
     return<>
       <div className="card">
-        <div className="row"><div><h2>{GIORNI[(new Date().getDay()+6)%7]} {new Date().toLocaleDateString('it-IT',{day:'numeric',month:'long'})}</h2>
-          <div className="sub" style={{marginBottom:0}}>{g.etichetta||'Giorno di riposo'} · giornata {g.tipo}</div></div>
-          <div className="spacer"/><button className="btn ghost small" onClick={()=>{setSel(oggi);setTab('pasti');}}>Vedi i pasti</button></div>
+        <div className="row">
+          <div><h2>{new Date(gAtt+'T12:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'})}{oggiQ?'':''}</h2>
+            <div className="sub" style={{marginBottom:0}}>{g.etichetta||'Giorno di riposo'} · giornata {g.tipo}{oggiQ?'':' · stai correggendo un altro giorno'}</div></div>
+          <div className="spacer"/>
+          <button className="btn ghost small" onClick={()=>spostaG(-1)}>←</button>
+          {!oggiQ&&<button className="btn ghost small" onClick={()=>setGAtt(oggi)}>Oggi</button>}
+          <button className="btn ghost small" onClick={()=>spostaG(1)}>→</button>
+          <button className="btn ghost small" onClick={()=>{setSel(gAtt);setTab('pasti');}}>Vedi i pasti</button>
+        </div>
         <div className="hr"/>
         <div className="grid g4">
-          <Kpi l="Target di oggi" v={targetAdj} u="kcal" cls="n"/>
+          <Kpi l={oggiQ?'Target di oggi':'Target del giorno'} v={targetAdj} u="kcal" cls="n"/>
           <Kpi l="Proteine" v={g.prot} u="g" cls="p"/>
           <Kpi l="Carboidrati" v={g.carb} u="g" cls="c"/>
           <Kpi l="Grassi" v={g.gras} u="g" cls="f"/>
@@ -669,21 +677,21 @@ function App(){
         <div className="sub">Se salti o accorci qualcosa, il target si ricalcola da solo.</div>
         {g.att.length?g.att.map((a,i)=><div className="row" key={i} style={{padding:'7px 0',borderBottom:'1px solid var(--line)'}}>
           <div style={{minWidth:170}}><b>{ATT[a.t].n}</b></div>
-          <input type="number" value={a.min} step="5" style={{maxWidth:90}} onChange={e=>{const m={...(reg.minuti||{})};m[i]=+e.target.value;setReg(oggi,{minuti:m});}}/>
+          <input type="number" value={a.min} step="5" style={{maxWidth:90}} onChange={e=>{const m={...(reg.minuti||{})};m[i]=+e.target.value;setReg(gAtt,{minuti:m});}}/>
           <span className="note">min</span>
           <div className="spacer"/>
           <span className="mono note">{a.fatto?'+'+Math.round(kcalAtt(a,st.profilo.peso)*INTENS[a.inten].k)+' kcal':'—'}</span>
-          <button className={'btn small '+(a.fatto?'on':'ghost')} onClick={()=>{const f={...(reg.fatti||{})};f[i]=!a.fatto;setReg(oggi,{fatti:f});}}>{a.fatto?'Fatto':'Saltato'}</button>
+          <button className={'btn small '+(a.fatto?'on':'ghost')} onClick={()=>{const f={...(reg.fatti||{})};f[i]=!a.fatto;setReg(gAtt,{fatti:f});}}>{a.fatto?'Fatto':'Saltato'}</button>
         </div>):<div className="note">Niente in programma oggi.</div>}
         <div className="row" style={{marginTop:12}}>
           <select id="addatt" defaultValue="pesi_b" style={{maxWidth:220}}>
             {Object.entries(ATT).map(([k,v])=><option key={k} value={k}>{v.n}</option>)}</select>
           <button className="btn ghost small" onClick={()=>{
             const t=document.getElementById('addatt').value;
-            const cur=attivitaDi(st,oggi);
-            up({override:{...st.override,[oggi]:[...cur,{t,min:ATT[t].def,q:'sera'}]}});
+            const cur=attivitaDi(st,gAtt);
+            up({override:{...st.override,[gAtt]:[...cur,{t,min:ATT[t].def,q:'sera'}]}});
           }}>Aggiungi attività</button>
-          {st.override[oggi]&&<button className="btn ghost small" onClick={()=>{const o={...st.override};delete o[oggi];up({override:o});}}>Torna al programma</button>}
+          {st.override[gAtt]&&<button className="btn ghost small" onClick={()=>{const o={...st.override};delete o[gAtt];up({override:o});}}>Torna al programma</button>}
         </div>
       </div>
 
@@ -698,7 +706,7 @@ function App(){
           const scrivi=voci=>{
             const t=voci.reduce((s2,x)=>{const mm=x.m||1;
               return {k:s2.k+Math.round(x.k*mm),p:s2.p+Math.round(x.p*mm),c:s2.c+Math.round(x.c*mm),f:s2.f+Math.round(x.f*mm)};},{k:0,p:0,c:0,f:0});
-            setReg(oggi,{pasti:{...(reg.pasti||{}),[m.id]:{voci,...t}}});
+            setReg(gAtt,{pasti:{...(reg.pasti||{}),[m.id]:{voci,...t}}});
           };
           const cambiaQ=(i,d)=>{const v=v0.voci.map((x,j)=>j===i?{...x,m:Math.max(0.5,Math.round(((x.m||1)+d)*2)/2)}:x);scrivi(v);};
           // con la ricerca cerco fra tutti gli alimenti, altrimenti mostro quelli tipici del pasto
@@ -714,9 +722,9 @@ function App(){
                     {res.k<=0?' · budget esaurito':''}</span>;})()}
               <button className="btn ghost small" onClick={()=>{setApri(aperto?null:m.id);setQ('');}}>{aperto?'Chiudi':'Segna'}</button>
               {stato(m)==='aperto'&&<button className="btn ghost small" onClick={()=>
-                setReg(oggi,{pasti:{...(reg.pasti||{}),[m.id]:{saltato:true,voci:[],k:0,p:0,c:0,f:0}}})}>Saltato</button>}
+                setReg(gAtt,{pasti:{...(reg.pasti||{}),[m.id]:{saltato:true,voci:[],k:0,p:0,c:0,f:0}}})}>Saltato</button>}
               {stato(m)==='saltato'&&<button className="btn ghost small" onClick={()=>{
-                const pp={...(reg.pasti||{})};delete pp[m.id];setReg(oggi,{pasti:pp});}}>Annulla</button>}
+                const pp={...(reg.pasti||{})};delete pp[m.id];setReg(gAtt,{pasti:pp});}}>Annulla</button>}
               {!v.voci.length&&stato(m)==='aperto'&&<button className="btn small" onClick={()=>{
                 const a=adattato(m);
                 const t=[{n:'Come proposto',k:0,p:a.palmi*PORZ.palmo,c:a.pugni*PORZ.pugno,f:a.pollici*PORZ.pollice+a.palmi*4}];
@@ -754,7 +762,7 @@ function App(){
         })}
         <div className="hr"/>
         <div className="grid g4">
-          <Kpi l={res.k>=0?'Restano oggi':'Sei oltre di'} v={Math.abs(res.k)} u="kcal" cls="n"/>
+          <Kpi l={res.k>=0?(oggiQ?'Restano oggi':'Restano'):'Sei oltre di'} v={Math.abs(res.k)} u="kcal" cls="n"/>
           <Kpi l="Proteine" v={res.p>0?res.p:0} u="g da prendere" cls="p"/>
           <Kpi l="Carboidrati" v={res.c>0?res.c:0} u="g" cls="c"/>
           <Kpi l="Grassi" v={res.f>0?res.f:0} u="g" cls="f"/>
@@ -841,7 +849,12 @@ function App(){
           <button className={'btn small '+(st.grammi?'on':'ghost')} onClick={()=>up({grammi:!st.grammi})}>{st.grammi?'Grammi visibili':'Mostra i grammi'}</button>
         </div>
         <div className="hr"/>
-        <div className="row">{giorni.map((x,i)=><span key={i} className={'chip'+(sel===x.data?' on':'')} onClick={()=>setSel(x.data)}>{G3[i]}</span>)}</div>
+        <div className="row">
+          <button className="btn ghost small" onClick={()=>{const d=new Date(ancora);d.setDate(d.getDate()-7);setAncora(d);setSel(iso(d));}}>←</button>
+          {giorni.map((x,i)=><span key={i} className={'chip'+(sel===x.data?' on':'')} onClick={()=>setSel(x.data)}>{G3[i]}<span className="note" style={{marginLeft:4}}>{x.data.slice(8)}</span></span>)}
+          <button className="btn ghost small" onClick={()=>{const d=new Date(ancora);d.setDate(d.getDate()+7);setAncora(d);setSel(iso(d));}}>→</button>
+          {sel!==oggi&&<button className="btn ghost small" onClick={()=>{setAncora(lunediDi(new Date()));setSel(oggi);}}>Oggi</button>}
+        </div>
         {vivo?<>
           <div className="ok" style={{marginTop:14}}>Giornata già cominciata: qui sotto trovi <b>quello che ti resta</b>, non il piano teorico. Hai preso {A.cons.k} kcal e {A.cons.p} g di proteine.</div>
           <div className="porz" style={{marginTop:12}}>
@@ -925,6 +938,78 @@ function App(){
     </>;
   })()}
 
+
+
+  {/* ---------------- SPESA ---------------- */}
+  {tab==='spesa'&&(()=>{
+    // sommo le porzioni della settimana e le traduco in prodotti, con una ripartizione ragionevole
+    const tot=giorni.reduce((a,g)=>{const P=porzioni(g);
+      return {palmi:a.palmi+P.palmi,pugni:a.pugni+P.pugni,pollici:a.pollici+P.pollici,frutti:a.frutti+P.frutti};},
+      {palmi:0,pugni:0,pollici:0,frutti:0});
+    const su=(v,step)=>Math.ceil(v/step)*step;
+    const gruppi=[
+      ['Proteine',[
+        ['Petto di pollo o tacchino', su(tot.palmi*0.30*120,100)+' g'],
+        ['Manzo o lonza di maiale',   su(tot.palmi*0.20*120,100)+' g'],
+        ['Uova',                      Math.ceil(tot.palmi*0.15*3)+' uova'],
+        ['Salmone',                   su(tot.palmi*0.10*110,100)+' g'],
+        ['Tonno al naturale',         Math.ceil(tot.palmi*0.10*2)+' scatolette'],
+        ['Grana o formaggio',         su(tot.palmi*0.08*60,50)+' g'],
+        ['Fiocchi di latte o ricotta',su(tot.palmi*0.07*150,100)+' g'],
+      ]],
+      ['Carboidrati',[
+        ['Pane',            su(tot.pugni*0.30*60,100)+' g'],
+        ['Pasta o riso',    su(tot.pugni*0.22*45,100)+' g'],
+        ['Patate',          su(tot.pugni*0.13*170,500)+' g'],
+        ['Crackers o gallette', su(tot.pugni*0.15*40,100)+' g'],
+        ['Biscotti secchi', su(tot.pugni*0.20*40,100)+' g'],
+      ]],
+      ['Frutta e verdura',[
+        ['Frutta',  su(tot.frutti*150,500)+' g'],
+        ['Verdura', su(14*200,500)+' g'],
+      ]],
+      ['Grassi e dispensa',[
+        ['Olio EVO',            su(tot.pollici*0.60*10,100)+' ml'],
+        ['Mandorle o noci',     su(tot.pollici*0.25*12,50)+' g'],
+        ['Cioccolato fondente', su(tot.pollici*0.15*20,50)+' g'],
+        ['Latte',               su(7*400,500)+' ml'],
+      ]],
+      ['Scorta per l\'ufficio',[
+        ['Tonno al naturale',   '4 scatolette'],
+        ['Crackers o gallette', '1 confezione'],
+        ['Mandorle',            '200 g'],
+        ['Frutta da portare',   '4 pezzi'],
+      ]],
+    ];
+    return<>
+      <div className="card">
+        <div className="row"><div><h2>Lista della spesa</h2>
+          <div className="sub" style={{marginBottom:0}}>Settimana dal {new Date(ancora).toLocaleDateString('it-IT',{day:'numeric',month:'long'})}. Quantità a crudo, arrotondate per eccesso.</div></div>
+          <div className="spacer"/>
+          <button className="btn ghost small" onClick={()=>{const d=new Date(ancora);d.setDate(d.getDate()-7);setAncora(d);}}>←</button>
+          <button className="btn ghost small" onClick={()=>setAncora(lunediDi(new Date()))}>Questa settimana</button>
+          <button className="btn ghost small" onClick={()=>{const d=new Date(ancora);d.setDate(d.getDate()+7);setAncora(d);}}>→</button>
+        </div>
+        <div className="hr"/>
+        <div className="grid g4">
+          <Kpi l="Porzioni proteiche" v={tot.palmi} u="palmi" cls="p"/>
+          <Kpi l="Porzioni di carboidrati" v={tot.pugni} u="pugni" cls="c"/>
+          <Kpi l="Frutta" v={tot.frutti} u="porzioni"/>
+          <Kpi l="Grassi da aggiungere" v={tot.pollici} u="pollici" cls="f"/>
+        </div>
+      </div>
+      <div className="card">
+        <div className="grid g2">
+          {gruppi.map(([g,voci])=><div key={g}>
+            <h3 style={{marginBottom:8}}>{g}</h3>
+            <table><tbody>{voci.map(([n,q])=><tr key={n}><td>{n}</td><td className="n">{q}</td></tr>)}</tbody></table>
+          </div>)}
+        </div>
+        <div className="hr"/>
+        <div className="note">La ripartizione fra i vari alimenti è una proposta: quello che conta è il totale delle porzioni qui sopra. Se una settimana vuoi più carne e meno uova, scambia pure — le liste di scambio nella scheda Pasti dicono a quanto corrisponde ogni sostituzione. La scorta per l'ufficio serve per i giorni in cui il pranzo fuori va storto.</div>
+      </div>
+    </>;
+  })()}
 
   {/* ---------------- CALENDARIO ---------------- */}
   {tab==='calendario'&&(()=>{
