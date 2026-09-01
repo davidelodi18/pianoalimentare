@@ -270,6 +270,7 @@ const SCAMBI={
   colaz_carb:[
     {n:'biscotti secchi',r:'c',q:5,u:'biscotti secchi',solo:true},
     {n:'biscotti frollini',r:'c',q:35,u:'g',nota:'vale anche 1 pollice'},
+    {n:'Gocciole',r:'c',q:4,u:'Gocciole',solo:true,nota:'vale anche 1 pollice'},
     {n:'fette biscottate con marmellata',r:'c',q:4,u:'fette con marmellata',solo:true},
     {n:'pane con marmellata o miele',r:'c',q:60,u:'g'},
     {n:'cereali non zuccherati',r:'c',q:50,u:'g'},
@@ -305,6 +306,51 @@ const SCAMBI={
   ],
 };
 const RUOLO={p:['palmo','palmi'],p2:['palmo','palmi'],c:['pugno','pugni'],g:['pollice','pollici'],v:['porzione','porzioni'],fr:['porzione di frutta','porzioni di frutta']};
+
+/* ============ FAMIGLIE PROTEICHE ============ */
+// servono per far ruotare le proposte: se in settimana hai già mangiato pollo tre volte,
+// il piatto ti propone prima qualcos'altro. Vale sia per i nomi delle liste di scambio
+// che per quelli del database dei pasti, così il conteggio e la proposta parlano la stessa lingua.
+const FAM_PROT=[
+  [/pollo|tacchino/i,'pollo'],
+  [/manzo|vitell|hamburger|tartare|roast ?beef/i,'carne rossa'],
+  [/lonza|maiale|speck|prosciutto|salumi|bresaola/i,'maiale e salumi'],
+  [/salmone|tonno|pesce/i,'pesce'],
+  [/uov/i,'uova'],
+  [/grana|parmigian|formaggio|mozzarella|emmental|fontina|ricotta|fiocchi di latte|yogurt|latte/i,'latticini'],
+  [/legumi|ceci|fagioli|lenticchie/i,'legumi'],
+];
+const famDi=n=>{for(const [re,f] of FAM_PROT) if(re.test(n)) return f; return null;};
+
+// quante volte ogni famiglia è comparsa nei sette giorni che finiscono a `data`.
+// conta solo le voci che portano almeno 10 g di proteine: il grana sull'insalata non è una fonte.
+function usiProteine(st,data){
+  const u={}, d0=new Date(data+'T12:00:00');
+  if(isNaN(d0)) return u;
+  for(let i=0;i<7;i++){
+    const d=new Date(d0); d.setDate(d.getDate()-i);
+    const pasti=(st.registro[iso(d)]||{}).pasti||{};
+    Object.keys(pasti).forEach(id=>{
+      const voci=(pasti[id]||{}).voci;
+      if(!Array.isArray(voci)) return;
+      voci.forEach(x=>{
+        const o=ALIMENTI.find(z=>z.n===x.n);
+        if(!o||o.p*(x.m||1)<10) return;
+        const f=famDi(x.n);
+        if(f) u[f]=(u[f]||0)+1;
+      });
+    });
+  }
+  return u;
+}
+// le opzioni proteiche di una lista, dalla meno usata alla più usata.
+// a parità di usi resta l'ordine originale, che è quello che ha più senso per quel pasto.
+function ordinaProt(lista,usi){
+  return lista.filter(x=>x.r==='p')
+    .map((o,i)=>({o,i,u:usi[famDi(o.n)]||0}))
+    .sort((a,b)=>a.u-b.u||a.i-b.i)
+    .map(x=>x.o);
+}
 // quantità di n porzioni di un alimento, scritta in modo leggibile
 function quanti(o,n){
   if(n<=0) return null;
@@ -352,6 +398,7 @@ const ALIMENTI=[
  [['sp'],'Schiacciatine o tarallini',30,'g',143,3.5,21,5],
  [['col'],'Biscotti secchi',30,'g',125,2.5,23,3],
  [['col'],'Biscotti frollini',30,'g',144,2,19,7],
+ [['col','sp'],'Gocciole',2,'biscotti',82,1.1,10.5,3.7],
  [['col'],'Fette biscottate',2,'fette',80,2.5,15,1.5],
  [['col'],'Marmellata o miele',15,'g',45,0,11,0],
  [['col'],'Cereali da colazione',50,'g',190,4,38,2],
@@ -404,7 +451,7 @@ const ALIMENTI=[
  [['x'],'Gelato',1,'coppetta',250,5,30,12],
  [['x'],'Patatine o snack salato',1,'busta',270,3,26,17],
 ].map((a,i)=>({i,cat:a[0],n:a[1],qb:a[2],ub:a[3],k:a[4],p:a[5],c:a[6],f:a[7]}));
-const SING={carote:'carota',fette:'fetta',gallette:'galletta'};
+const SING={carote:'carota',fette:'fetta',gallette:'galletta',biscotti:'biscotto',kiwi:'kiwi'};
 const qtaTesto=(o,m)=>{const v=o.qb*m; const n=Number.isInteger(v)?v:Math.round(v*10)/10;
   return n+' '+(n===1&&SING[o.ub]?SING[o.ub]:o.ub);};
 
@@ -860,6 +907,8 @@ function App(){
     const A=statoGiornata(st,g,oggiQuesto?comp.perGiorno:0);
     const vivo=oggiQuesto&&A.iniziata;   // giornata già cominciata: mostro cosa resta, non il piano teorico
     const pasti=A.pasti;
+    const usi=usiProteine(st,g.data);    // quante volte hai già mangiato ogni fonte nei sette giorni prima di oggi
+    const usate=Object.keys(usi).sort((a,b)=>usi[b]-usi[a]);
     return<>
       <div className="card">
         <div className="row"><div><h2>Pasti — {GIORNI[(new Date(g.data+'T12:00:00').getDay()+6)%7]}</h2>
@@ -892,6 +941,9 @@ function App(){
           </div>
           <div className="note">Il palmo è la mano senza le dita, spessore incluso. Il pugno è chiuso. Il pollice è tutto il dito. Sono misure tue, quindi si scalano da sole.</div>
         </>}
+        {usate.length>0&&<div className="note" style={{marginTop:10}}>
+          Fonti proteiche degli ultimi sette giorni: {usate.map(f=>f+' ×'+usi[f]).join(' · ')}. Le proposte qui sotto partono da quelle che hai usato meno.
+        </div>}
       </div>
 
       {pasti.map(m=>{
@@ -914,12 +966,16 @@ function App(){
             m.liste.forEach(([,key])=>{
               ['p','c','g','v'].forEach(r=>{
                 if(q[r]<=0||voci.some(x=>x.r===r)) return;
-                const o=SCAMBI[key].find(x=>x.r===r);
+                // per le proteine parto dalla fonte che hai usato meno in settimana, non sempre dalla prima della lista
+                const ordP=r==='p'?ordinaProt(SCAMBI[key],usi):null;
+                const o=ordP?ordP[0]:SCAMBI[key].find(x=>x.r===r);
                 if(!o) return;
                 if(r==='p'&&q[r]>=3){
-                  const alt=SCAMBI[key].filter(x=>x.r==='p'&&x!==o)[4]||SCAMBI[key].filter(x=>x.r==='p'&&x!==o)[0];
-                  voci.push({r,o,n:q[r]-1,testo:quanti(o,q[r]-1)});
-                  if(alt) voci.push({r:'p2',o:alt,n:1,testo:quanti(alt,1)});
+                  // due palmi o più: spezzo su due famiglie diverse invece di chiederti sei uova
+                  const alt=ordP.find(x=>famDi(x.n)!==famDi(o.n))||ordP[1];
+                  const quota=Math.max(1,Math.round(q[r]/2));
+                  voci.push({r,o,n:q[r]-quota,testo:quanti(o,q[r]-quota)});
+                  if(alt) voci.push({r:'p2',o:alt,n:quota,testo:quanti(alt,quota)});
                 } else voci.push({r,o,n:q[r],testo:quanti(o,q[r])});
               });
             });
@@ -934,16 +990,18 @@ function App(){
                 </div>)}
               </div>
               <h3 style={{fontSize:13,marginBottom:6}}>Se vuoi cambiare</h3>
-              <div className="note" style={{marginBottom:8}}>Sostituisci una voce con un'altra dello stesso gruppo, alla quantità indicata per il tuo numero di porzioni.</div>
+              <div className="note" style={{marginBottom:8}}>Sostituisci una voce con un'altra dello stesso gruppo, alla quantità indicata per il tuo numero di porzioni. Le fonti proteiche sono ordinate dalla meno usata alla più usata negli ultimi sette giorni.</div>
               {m.liste.map(([tit,key])=>{
                 const r=(SCAMBI[key][0]||{}).r, n=q[r]||0;
                 if(n<=0) return null;
+                const opz=r==='p'?ordinaProt(SCAMBI[key],usi):SCAMBI[key].filter(o=>o.r===r);
                 return <div key={key} style={{marginBottom:10}}>
                   <div className="note" style={{marginBottom:3}}>{tit} — {pl(n,RUOLO[r][0],RUOLO[r][1])}</div>
-                  {SCAMBI[key].filter(o=>o.r===r).map((o,i)=><div className="opt" key={i}>
+                  {opz.map((o,i)=>{const u=r==='p'?(usi[famDi(o.n)]||0):0;
+                    return <div className="opt" key={i}>
                     <span>{quanti(o,n)}</span>
-                    <span className="q">{o.nota||(st.grammi?'1 porzione = '+o.q+' '+(o.q===1?o.u:(o.u2||o.u)):'')}</span>
-                  </div>)}
+                    <span className="q">{u>=2?'già '+u+' volte in settimana':(o.nota||(st.grammi?'1 porzione = '+o.q+' '+(o.q===1?o.u:(o.u2||o.u)):''))}</span>
+                  </div>;})}
                 </div>;
               })}
             </>;
@@ -1340,6 +1398,8 @@ function App(){
       <p className="note">È l'unico pasto che non controlli, quindi ha una regola sola: deve esserci sempre la parte proteica. I carboidrati li sposti dove vuoi senza problemi, le proteine no, perché venti grammi persi a pranzo a cena non li recuperi. Le insalatone senza carne sono la trappola classica: sembrano la scelta giusta e ti lasciano affamato alle quattro. Tieni una scorta in ufficio — crackers, tonno, mandorle, un frutto — per i giorni storti.</p>
       <h3 style={{marginTop:14}}>La colazione</h3>
       <p className="note">Resta latte o tè con i biscotti. L'unica aggiunta è la parte proteica, che costa due minuti: mezzo litro di latte al posto di un quarto, oppure due uova sode preparate prima. Se la mattina salta del tutto, spezza il pasto: biscotti al volo e la parte proteica alle nove e mezza in ufficio. Il totale della giornata è l'unica cosa che conta.</p>
+      <h3 style={{marginTop:14}}>Perché le proposte cambiano</h3>
+      <p className="note">Il piatto guarda cosa hai registrato negli ultimi sette giorni e parte dalla fonte proteica che hai usato meno. Non è una questione di salute: le proteine sono proteine, da qualunque parte arrivino. È che mangiare pollo sei sere di fila stanca, e quando stanca si molla. Per lo stesso motivo, quando un pasto chiede due palmi o più, la proposta li spezza su due fonti diverse invece di chiederti sei uova in un colpo solo.</p>
       <h3 style={{marginTop:14}}>Quando sfori</h3>
       <p className="note">Lo scostamento non si recupera il giorno dopo tutto insieme. Si spalma sui giorni che restano nella settimana, al massimo 150 kcal al giorno, e mai sotto il metabolismo basale. Se è troppo grande per stare in quei limiti, resta lì e la settimana si chiude così: un pranzo abbondante costa qualche giorno di ritardo, non merita di innescare un digiuno.</p>
       <h3 style={{marginTop:14}}>La palestra sotto il futsal</h3>
