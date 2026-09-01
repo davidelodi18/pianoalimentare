@@ -182,6 +182,8 @@ const ATT={
   pesi_b:      {n:'Palestra B',        met:4.5,def:60,gambe:false},
   pesi_c:      {n:'Palestra C',        met:4.5,def:60,gambe:false},
   corsa:       {n:'Corsa',             met:9.8,def:40,gambe:true},
+  padel:       {n:'Padel',             met:6.0,def:90,gambe:true},
+  calcetto:    {n:'Calcetto o partitella',met:7.0,def:60,gambe:true},
   bici:        {n:'Bici',              met:7.5,def:60,gambe:false},
   camminata:   {n:'Camminata',         met:4.3,def:45,gambe:false},
   altro:       {n:'Altro',             met:6.0,def:60,gambe:false},
@@ -356,7 +358,7 @@ function quanti(o,n){
   if(n<=0) return null;
   const v=o.q*n, num = Number.isInteger(v)?v:(v<10?Math.round(v*2)/2:Math.round(v/5)*5);
   const u = (num===1||!o.u2) ? o.u : o.u2;
-  return o.solo ? num+' '+u : num+' '+u+' di '+o.n;
+  return o.solo ? String(num).replace('.',',')+' '+u : String(num).replace('.',',')+' '+u+' di '+o.n;
 }
 
 /* ============ COSA SI MANGIA DAVVERO ============ */
@@ -456,7 +458,8 @@ const qtaTesto=(o,m)=>{const v=o.qb*m; const n=Number.isInteger(v)?v:Math.round(
   return n+' '+(n===1&&SING[o.ub]?SING[o.ub]:o.ub);};
 
 const KCAL_PORZ={palmi:145,pugni:135,frutti:70,pollici:99};
-const pl=(n,a,b)=>n+' '+(n===1?a:b);
+const MEZZO={palmo:'mezzo palmo',pugno:'mezzo pugno',pollice:'mezzo pollice',porzione:'mezza porzione'};
+const pl=(n,a,b)=>n===0.5?(MEZZO[a]||('mezza '+a)):(String(n).replace('.',',')+' '+(n===1?a:b));
 const pesoPasto=m=>m.palmi*KCAL_PORZ.palmi+m.pugni*KCAL_PORZ.pugni+m.frutti*KCAL_PORZ.frutti+m.pollici*KCAL_PORZ.pollici;
 const CAT_PASTO={colazione:'col',sp1:'sp',pranzo:'pr',sp2:'sp',cena:'ce'};
 const PORZ_RAPIDE=[
@@ -628,13 +631,16 @@ function statoGiornata(st,g,perGiorno){
   // ogni macro si divide solo tra i pasti che possono ospitarla: le proteine non finiscono sugli spuntini
   const peso=(r)=>aperti.filter(m=>m.ruoli.includes(r)).reduce((s2,m)=>s2+pesoPasto(m),0)||1;
   const pesoP=peso('p'), pesoC=peso('c'), pesoG=peso('g');
+  // arrotondo a mezza porzione, non all'intero: con 25 g di carboidrati residui
+  // il piatto deve dire mezzo pugno, non un pugno pieno che ne vale 30
+  const mezzi=x=>Math.max(0,Math.round(x*2)/2);
   const adattato=m=>{
     if(stato(m)!=='aperto') return {palmi:0,pugni:0,pollici:0};
     const w=pesoPasto(m);
-    const grezzo=m.ruoli.includes('p')?Math.max(0,Math.round(res.p*w/pesoP/PORZ.palmo)):0;
+    const grezzo=m.ruoli.includes('p')?mezzi(res.p*w/pesoP/PORZ.palmo):0;
     return {palmi:Math.min(4,grezzo), palmiTeorici:grezzo,
-            pugni:  m.ruoli.includes('c')?Math.min(7,Math.max(0,Math.round(res.c*w/pesoC/PORZ.pugno))):0,
-            pollici:m.ruoli.includes('g')?Math.max(0,Math.round(res.f*w/pesoG*0.45/PORZ.pollice)):0};
+            pugni:  m.ruoli.includes('c')?Math.min(7,mezzi(res.c*w/pesoC/PORZ.pugno)):0,
+            pollici:m.ruoli.includes('g')?mezzi(res.f*w/pesoG*0.45/PORZ.pollice):0};
   };
   const iniziata=cons.k>0||pasti.some(m=>stato(m)!=='aperto');
   return {reg,cons,targetAdj,res,pasti,stato,adattato,iniziata};
@@ -793,7 +799,7 @@ function App(){
                 const pp={...(reg.pasti||{})};delete pp[m.id];setReg(gAtt,{pasti:pp});}}>Annulla</button>}
               {!v.voci.length&&stato(m)==='aperto'&&<button className="btn small" onClick={()=>{
                 const a=adattato(m);
-                const t=[{n:'Come proposto',k:0,p:a.palmi*PORZ.palmo,c:a.pugni*PORZ.pugno,f:a.pollici*PORZ.pollice+a.palmi*4}];
+                const t=[{n:'Come proposto',k:0,p:Math.round(a.palmi*PORZ.palmo),c:Math.round(a.pugni*PORZ.pugno),f:Math.round(a.pollici*PORZ.pollice+a.palmi*4)}];
                 t[0].k=Math.round(t[0].p*4+t[0].c*4+t[0].f*9); scrivi(t);}}>Come proposto</button>}
             </div>
             {(v.voci.length||aperto)&&<div className="mealbody">
@@ -983,6 +989,7 @@ function App(){
             if(!voci.length) return <div className="note">Con quello che hai già mangiato non resta budget per questo pasto. Se hai fame, verdura libera.</div>;
             return <>
               <h3 style={{fontSize:13,marginBottom:6}}>Il piatto</h3>
+              {a&&<div className="note" style={{marginBottom:6}}>Ricalcolato su quello che ti resta oggi, non sul programma teorico: è questo il numero da seguire.</div>}
               <div style={{border:'1px solid var(--line)',borderRadius:4,padding:'10px 12px',marginBottom:12,background:'#FBFCFA'}}>
                 {voci.map((v,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',gap:10,padding:'3px 0'}}>
                   <span><b>{v.testo}</b></span>
