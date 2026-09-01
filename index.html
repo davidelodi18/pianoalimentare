@@ -415,6 +415,10 @@ const ALIMENTI=[
  [['sp','col','ce','pr'],'Banana',1,'banana',95,1,24,0.3],
  [['sp','col','ce','pr'],'Pera',1,'pera',85,0.6,22,0.2],
  [['sp','col','ce','pr'],'Arancia',1,'arancia',70,1.4,18,0.2],
+ [['sp','col','ce','pr'],'Pesca',1,'pesca',60,1,14,0.3],
+ [['sp','col','ce','pr'],'Albicocche',3,'albicocche',53,1.5,12,0.4],
+ [['sp','col','ce','pr'],'Susine',3,'susine',70,1,17,0.4],
+ [['sp','col','ce','pr'],'Melone o anguria',300,'g',90,1.8,21,0.3],
  [['sp','col'],'Kiwi',2,'kiwi',90,1.6,22,0.7],
  [['sp','col'],'Frutti di bosco',150,'g',65,1.5,13,0.6],
  [['sp','col'],'Uva',150,'g',104,1,27,0.3],
@@ -453,7 +457,7 @@ const ALIMENTI=[
  [['x'],'Gelato',1,'coppetta',250,5,30,12],
  [['x'],'Patatine o snack salato',1,'busta',270,3,26,17],
 ].map((a,i)=>({i,cat:a[0],n:a[1],qb:a[2],ub:a[3],k:a[4],p:a[5],c:a[6],f:a[7]}));
-const SING={carote:'carota',fette:'fetta',gallette:'galletta',biscotti:'biscotto',kiwi:'kiwi'};
+const SING={carote:'carota',fette:'fetta',gallette:'galletta',biscotti:'biscotto',kiwi:'kiwi',albicocche:'albicocca',susine:'susina'};
 const qtaTesto=(o,m)=>{const v=o.qb*m; const n=Number.isInteger(v)?v:Math.round(v*10)/10;
   return n+' '+(n===1&&SING[o.ub]?SING[o.ub]:o.ub);};
 
