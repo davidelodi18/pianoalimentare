@@ -773,22 +773,41 @@ function App(){
 
   const setReg=(data,patch)=>setSt(s=>({...s,registro:{...s.registro,[data]:{...(s.registro[data]||{}),...patch}}}));
 
-  // il report come file HTML che si apre da solo: niente finestra di stampa, niente librerie.
-  // prendo i riquadri già renderizzati, così quello che scarichi è esattamente quello che vedi.
-  const scaricaReport=lun=>{
-    const nodi=[...document.querySelectorAll('.card')].filter(n=>!n.classList.contains('noprint'));
-    if(!nodi.length) return;
-    const css=[...document.querySelectorAll('style')].map(s=>s.textContent).join('\n');
-    const corpo=nodi.map(n=>n.outerHTML).join('\n');
-    const doc='<!doctype html><html lang="it"><head><meta charset="utf-8">'
-      +'<meta name="viewport" content="width=device-width,initial-scale=1">'
-      +'<title>Piano — report '+lun+'</title><style>'+css
-      +'\nbody{background:#fff;padding:20px}.wrap{max-width:820px;margin:0 auto}button{display:none}</style></head>'
-      +'<body><div class="wrap">'+corpo+'</div></body></html>';
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(new Blob([doc],{type:'text/html'}));
-    a.download='piano-report-'+lun+'.html'; a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  // il report in PDF, scaricato direttamente. Le due librerie si caricano solo al primo click,
+  // così non pesano sull'avvio. Se la rete non c'è, si ripiega sulla finestra di stampa.
+  const [pdfCorso,setPdfCorso]=useState(false);
+  const caricaScript=src=>new Promise((ok,ko)=>{
+    const s=document.createElement('script'); s.src=src;
+    // se la rete non risponde, mollo dopo dodici secondi invece di restare appeso
+    const t=setTimeout(()=>ko(new Error('timeout')),12000);
+    s.onload=()=>{clearTimeout(t);ok();};
+    s.onerror=()=>{clearTimeout(t);ko(new Error('script'));};
+    document.head.appendChild(s);
+  });
+  const scaricaReport=async lun=>{
+    if(pdfCorso) return;
+    setPdfCorso(true);
+    try{
+      if(!window.html2canvas) await caricaScript('https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js');
+      if(!window.jspdf) await caricaScript('https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js');
+      const nodi=[...document.querySelectorAll('.card')].filter(n=>!n.classList.contains('noprint'));
+      if(!nodi.length) throw new Error('niente da esportare');
+      const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
+      const LARG=210, MARG=10, UTILE=LARG-MARG*2, ALT=297-MARG*2;
+      let y=MARG;
+      for(const n of nodi){
+        const cv=await window.html2canvas(n,{scale:2,backgroundColor:'#ffffff',logging:false});
+        const h=cv.height*UTILE/cv.width;
+        if(y>MARG&&y+h>ALT+MARG){ pdf.addPage(); y=MARG; }
+        pdf.addImage(cv.toDataURL('image/jpeg',0.92),'JPEG',MARG,y,UTILE,Math.min(h,ALT));
+        y+=Math.min(h,ALT)+4;
+      }
+      pdf.save('piano-report-'+lun+'.pdf');
+    }catch(e){
+      alert('Non sono riuscito a generare il PDF (probabilmente manca la rete). Apro la finestra di stampa: da lì scegli "Salva come PDF".');
+      window.print();
+    }
+    setPdfCorso(false);
   };
 
   return(<>
@@ -1416,9 +1435,9 @@ function App(){
         return<>
           <div className="card">
             <h3>Progressi per esercizio</h3>
-            <div className="note" style={{marginBottom:10}}>Il confronto è fra la prima serie che hai segnato e l'ultima. Non aspettarti una salita continua: il carico che tiene fermo mentre le ripetizioni salgono è comunque progresso.</div>
+            <div className="note" style={{marginBottom:10}}>Ogni riga confronta la prima volta che hai segnato quell'esercizio con l'ultima: a sinistra com'era all'inizio, poi com'è adesso, poi di quanti chili è cambiato il carico. L'ultima colonna dice quante volte l'hai registrato in tutto. Il carico fermo con le ripetizioni che salgono è progresso uguale, quindi uno zero in colonna non vuol dire che sei bloccato.</div>
             <table><thead><tr>
-              <th>Esercizio</th><th className="n">Prima</th><th className="n">Ultima</th><th className="n">Diff.</th><th className="n">Volte</th>
+              <th>Esercizio</th><th className="n">La prima volta</th><th className="n">L'ultima volta</th><th className="n">Carico</th><th className="n">Volte segnato</th>
             </tr></thead><tbody>
               {righe.sort((a,b)=>b.log.length-a.log.length).map(r=>{
                 const p=r.log[0], u=r.log[r.log.length-1], d=Math.round((u.kg-p.kg)*10)/10;
@@ -1540,13 +1559,12 @@ function App(){
     return<>
       <div className="card noprint">
         <div className="row"><div><h2>Report settimanale</h2>
-          <div className="sub" style={{marginBottom:0}}>Scaricalo quando vuoi, anche a settimana in corso: prende i giorni già registrati e lascia vuoti gli altri.</div></div>
+          <div className="sub" style={{marginBottom:0}}>Esportalo quando vuoi, anche a settimana in corso: prende i giorni già registrati e lascia vuoti gli altri.</div></div>
           <div className="spacer"/>
           <button className="btn ghost small" onClick={()=>{const d=new Date(ancora);d.setDate(d.getDate()-7);setAncora(d);}}>←</button>
           <button className="btn ghost small" onClick={()=>setAncora(lunediDi(new Date()))}>Questa settimana</button>
           <button className="btn ghost small" onClick={()=>{const d=new Date(ancora);d.setDate(d.getDate()+7);setAncora(d);}}>→</button>
-          <button className="btn" onClick={()=>scaricaReport(giorni[0].data)}>Scarica</button>
-          <button className="btn ghost small" onClick={()=>window.print()}>Stampa</button>
+          <button className="btn" disabled={pdfCorso} onClick={()=>scaricaReport(giorni[0].data)}>{pdfCorso?'Genero…':'Esporta PDF'}</button>
         </div>
       </div>
 
