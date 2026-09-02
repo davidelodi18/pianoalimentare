@@ -773,6 +773,24 @@ function App(){
 
   const setReg=(data,patch)=>setSt(s=>({...s,registro:{...s.registro,[data]:{...(s.registro[data]||{}),...patch}}}));
 
+  // il report come file HTML che si apre da solo: niente finestra di stampa, niente librerie.
+  // prendo i riquadri già renderizzati, così quello che scarichi è esattamente quello che vedi.
+  const scaricaReport=lun=>{
+    const nodi=[...document.querySelectorAll('.card')].filter(n=>!n.classList.contains('noprint'));
+    if(!nodi.length) return;
+    const css=[...document.querySelectorAll('style')].map(s=>s.textContent).join('\n');
+    const corpo=nodi.map(n=>n.outerHTML).join('\n');
+    const doc='<!doctype html><html lang="it"><head><meta charset="utf-8">'
+      +'<meta name="viewport" content="width=device-width,initial-scale=1">'
+      +'<title>Piano — report '+lun+'</title><style>'+css
+      +'\nbody{background:#fff;padding:20px}.wrap{max-width:820px;margin:0 auto}button{display:none}</style></head>'
+      +'<body><div class="wrap">'+corpo+'</div></body></html>';
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([doc],{type:'text/html'}));
+    a.download='piano-report-'+lun+'.html'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  };
+
   return(<>
   <header><div className="wrap">
     <div className="brand">
@@ -1522,12 +1540,13 @@ function App(){
     return<>
       <div className="card noprint">
         <div className="row"><div><h2>Report settimanale</h2>
-          <div className="sub" style={{marginBottom:0}}>Quello che vedi qui sotto è la pagina che verrà stampata. Dalla finestra di stampa scegli "Salva come PDF".</div></div>
+          <div className="sub" style={{marginBottom:0}}>Scaricalo quando vuoi, anche a settimana in corso: prende i giorni già registrati e lascia vuoti gli altri.</div></div>
           <div className="spacer"/>
           <button className="btn ghost small" onClick={()=>{const d=new Date(ancora);d.setDate(d.getDate()-7);setAncora(d);}}>←</button>
           <button className="btn ghost small" onClick={()=>setAncora(lunediDi(new Date()))}>Questa settimana</button>
           <button className="btn ghost small" onClick={()=>{const d=new Date(ancora);d.setDate(d.getDate()+7);setAncora(d);}}>→</button>
-          <button className="btn" onClick={()=>window.print()}>Esporta PDF</button>
+          <button className="btn" onClick={()=>scaricaReport(giorni[0].data)}>Scarica</button>
+          <button className="btn ghost small" onClick={()=>window.print()}>Stampa</button>
         </div>
       </div>
 
@@ -1586,6 +1605,36 @@ function App(){
                : 'Reale e attesa si discostano di '+Math.abs((mSett-mPrima)-attesa).toFixed(2)+' kg. Se si conferma anche la prossima settimana, sposta il target di 150 kcal al giorno.')
             : 'Servono due settimane di pesate per confrontare il reale con l\'atteso.'}
         </div>
+
+        <h3 style={{marginBottom:10,marginTop:18}}>Palestra</h3>
+        {(()=>{
+          const nomeEx=k=>{
+            const [sk,si]=k.split('-');
+            if(sk==='mio') return ((st.mieiEx||[])[+si]||{}).n||null;
+            const s2=SCHEDE[sk]; return s2&&s2.ex[+si]?s2.ex[+si].n:null;
+          };
+          const dentro=[];
+          Object.keys(st.carichi||{}).forEach(k=>{
+            const n=nomeEx(k); if(!n) return;
+            (st.carichi[k]||[]).forEach(x=>{
+              if(x.d>=giorni[0].data&&x.d<=giorni[6].data) dentro.push({n,...x});
+            });
+          });
+          if(!dentro.length) return <div className="note">Nessun carico registrato in questa settimana.</div>;
+          const gg2=[...new Set(dentro.map(x=>x.d))].sort();
+          return<>
+            <div className="grid g3" style={{marginBottom:10}}>
+              <Kpi l="Sedute" v={gg2.length} u={(gg2.length===1?'giorno':'giorni')+' con carichi segnati'}/>
+              <Kpi l="Esercizi diversi" v={new Set(dentro.map(x=>x.n)).size} u="in settimana"/>
+              <Kpi l="Serie totali" v={dentro.reduce((a,x)=>a+(x.set||1),0)} u="somma delle serie" cls="p"/>
+            </div>
+            {gg2.map(d=><div key={d} style={{marginBottom:8}}>
+              <b style={{fontSize:13}}>{fmtD(d)}</b>
+              <div className="sr">{dentro.filter(x=>x.d===d)
+                .map(x=>x.n+' '+(x.set||1)+'×'+x.reps+(x.kg?' con '+x.kg+' kg':'')).join(' · ')}</div>
+            </div>)}
+          </>;
+        })()}
       </div>
     </>;
   })()}
