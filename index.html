@@ -1245,6 +1245,74 @@ function App(){
           </div>;
         })}
       </div>)}
+      {(()=>{
+        // storico dei carichi: le voci sono salvate come carichi['scheda-indice'] = [{d,kg,reps}]
+        const righe=[];
+        Object.keys(st.carichi||{}).forEach(k=>{
+          const log=st.carichi[k]||[]; if(!log.length) return;
+          const [sk,si]=k.split('-');
+          const sch=SCHEDE[sk]; if(!sch||!sch.ex[+si]) return;
+          righe.push({k, nome:sch.ex[+si].n, scheda:sch.n, log:[...log].sort((a,b)=>a.d.localeCompare(b.d))});
+        });
+        if(!righe.length) return <div className="card">
+          <h3>Come stai andando</h3>
+          <div className="note">Qui comparirà il riepilogo dei carichi appena inizi a segnarli con il tasto "Segna" sugli esercizi qui sopra. Serve almeno una serie registrata.</div>
+        </div>;
+
+        // raggruppo per settimana, così vedi quante volte sei andato e cosa hai fatto
+        const sett={};
+        righe.forEach(r=>r.log.forEach(x=>{
+          const l=iso(lunediDi(new Date(x.d+'T12:00:00')));
+          (sett[l]=sett[l]||{gg:new Set(),ex:[]});
+          sett[l].gg.add(x.d);
+          sett[l].ex.push({n:r.nome,kg:x.kg,reps:x.reps,d:x.d});
+        }));
+        const settimane=Object.keys(sett).sort().reverse().slice(0,8);
+        const dm=s=>new Date(s+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'short'});
+
+        return<>
+          <div className="card">
+            <h3>Progressi per esercizio</h3>
+            <div className="note" style={{marginBottom:10}}>Il confronto è fra la prima serie che hai segnato e l'ultima. Non aspettarti una salita continua: il carico che tiene fermo mentre le ripetizioni salgono è comunque progresso.</div>
+            <table><thead><tr>
+              <th>Esercizio</th><th className="n">Prima</th><th className="n">Ultima</th><th className="n">Diff.</th><th className="n">Volte</th>
+            </tr></thead><tbody>
+              {righe.sort((a,b)=>b.log.length-a.log.length).map(r=>{
+                const p=r.log[0], u=r.log[r.log.length-1], d=Math.round((u.kg-p.kg)*10)/10;
+                return<tr key={r.k}>
+                  <td>{r.nome}<div className="sr">{r.scheda}</div></td>
+                  <td className="n">{p.kg} kg × {p.reps}</td>
+                  <td className="n">{u.kg} kg × {u.reps}</td>
+                  <td className="n" style={{color:d>0?'var(--ok)':d<0?'var(--warn)':'inherit'}}>
+                    {d>0?'+'+String(d).replace('.',','):d<0?String(d).replace('.',','):'='}
+                  </td>
+                  <td className="n">{r.log.length}</td>
+                </tr>;
+              })}
+            </tbody></table>
+          </div>
+
+          <div className="card">
+            <h3>Settimana per settimana</h3>
+            <div className="note" style={{marginBottom:10}}>Le sedute contate sono i giorni in cui hai segnato almeno un carico. L'obiettivo è due o tre a settimana; durante la preparazione due bastano.</div>
+            {settimane.map(l=>{
+              const s=sett[l], n=s.gg.size;
+              const fine=new Date(l+'T12:00:00'); fine.setDate(fine.getDate()+6);
+              return<div key={l} style={{marginBottom:12}}>
+                <div className="row" style={{marginBottom:4}}>
+                  <b style={{fontSize:13}}>{dm(l)} – {dm(iso(fine))}</b>
+                  <div className="spacer"/>
+                  <span className="tag">{pl(n,'seduta','sedute')}</span>
+                </div>
+                <div className="sr">{[...s.gg].sort().map(g=>{
+                  const ex=s.ex.filter(x=>x.d===g);
+                  return dm(g)+': '+ex.map(x=>x.n+' '+x.kg+'×'+x.reps).join(', ');
+                }).join(' — ')}</div>
+              </div>;
+            })}
+          </div>
+        </>;
+      })()}
     </>;
   })()}
 
