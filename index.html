@@ -662,10 +662,12 @@ function PannelloEx({id,st,up,oggi,form,setForm}){
   const ult=log[log.length-1];
   const scrivi=arr=>{const c={...st.carichi}; if(arr.length) c[id]=arr; else delete c[id]; up({carichi:c});};
   const leggi=()=>{
-    const kg=parseFloat(String(form.kg).replace(',','.'));
     const reps=parseInt(form.reps,10);
     const set=parseInt(form.set,10);
-    if(isNaN(kg)||isNaN(reps)||reps<=0) return null;
+    if(isNaN(reps)||reps<=0) return null;
+    // il peso è facoltativo: plank, crunch e leg raise si fanno a corpo libero
+    const kg=form.kg===''||form.kg==null?0:parseFloat(String(form.kg).replace(',','.'));
+    if(isNaN(kg)) return null;
     return {d:form.d||oggi, set:(isNaN(set)||set<=0)?1:set, kg, reps};
   };
   const conferma=()=>{
@@ -689,7 +691,7 @@ function PannelloEx({id,st,up,oggi,form,setForm}){
       <input type="number" placeholder="rip." value={form.reps||''}
         onChange={e=>setForm({...form,reps:e.target.value})}
         onKeyDown={e=>{if(e.key==='Enter')conferma();}} style={{maxWidth:76}}/>
-      <input type="number" step="0.5" placeholder={ult?'kg (ult. '+ult.kg+')':'kg'} value={form.kg||''}
+      <input type="number" step="0.5" placeholder={ult&&ult.kg?'kg (ult. '+ult.kg+')':'kg — vuoto se a corpo libero'} value={form.kg||''}
         onChange={e=>setForm({...form,kg:e.target.value})} style={{maxWidth:96}}/>
       <button className="btn small" onClick={conferma}>{inMod?'Salva':'Aggiungi'}</button>
       {inMod&&<button className="btn ghost small" onClick={()=>setForm({d:oggi,set:'',kg:'',reps:'',mod:null})}>Annulla</button>}
@@ -710,7 +712,7 @@ function PannelloEx({id,st,up,oggi,form,setForm}){
       ? <div style={{marginTop:9}}>
           {[...log].reverse().map((x,j)=><div className="row" key={j} style={{padding:'4px 0',borderBottom:'1px solid var(--line)'}}>
             <span className="sr" style={{minWidth:76}}>{new Date(x.d+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'short'})}</span>
-            <b style={{fontSize:13}}>{(x.set||1)} × {x.reps} · {String(x.kg).replace('.',',')} kg</b>
+            <b style={{fontSize:13}}>{(x.set||1)} × {x.reps}{x.kg?' · '+String(x.kg).replace('.',',')+' kg':' · corpo libero'}</b>
             <div className="spacer"/>
             <button className="btn ghost small" onClick={()=>modifica(x)}>modifica</button>
             <button className="btn ghost small" onClick={()=>scrivi((st.carichi[id]||[]).filter(y=>y!==x))}>×</button>
@@ -1304,7 +1306,7 @@ function App(){
           return<div className="ex" key={i}>
             <div className="nm">{e.n}<span className="sr">{e.s}</span>
               <div className="spacer"/>
-              {ult&&<span className="sr">ultimo: {(ult.set||1)}×{ult.reps} · {ult.kg} kg</span>}
+              {ult&&<span className="sr">ultimo: {(ult.set||1)}×{ult.reps}{ult.kg?' · '+ult.kg+' kg':''}</span>}
               <button className="btn ghost small" onClick={()=>{
                 if(aperto){setExApri(null);return;}
                 setExApri(id); setExForm({d:oggi,set:'',kg:'',reps:'',mod:null});
@@ -1330,7 +1332,7 @@ function App(){
             return<div className="ex" key={i}>
               <div className="nm">{e.n}
                 <div className="spacer"/>
-                {ult&&<span className="sr">ultimo: {(ult.set||1)}×{ult.reps} · {ult.kg} kg</span>}
+                {ult&&<span className="sr">ultimo: {(ult.set||1)}×{ult.reps}{ult.kg?' · '+ult.kg+' kg':''}</span>}
                 <button className="btn ghost small" onClick={()=>{
                   if(exApri===id){setExApri(null);return;}
                   setExApri(id); setExForm({d:oggi,set:'',kg:'',reps:'',mod:null});
@@ -1404,8 +1406,8 @@ function App(){
                 const p=r.log[0], u=r.log[r.log.length-1], d=Math.round((u.kg-p.kg)*10)/10;
                 return<tr key={r.k}>
                   <td>{r.nome}<div className="sr">{r.scheda}</div></td>
-                  <td className="n">{(p.set||1)}×{p.reps} · {p.kg} kg</td>
-                  <td className="n">{(u.set||1)}×{u.reps} · {u.kg} kg</td>
+                  <td className="n">{(p.set||1)}×{p.reps}{p.kg?' · '+p.kg+' kg':''}</td>
+                  <td className="n">{(u.set||1)}×{u.reps}{u.kg?' · '+u.kg+' kg':''}</td>
                   <td className="n" style={{color:d>0?'var(--ok)':d<0?'var(--warn)':'inherit'}}>
                     {d>0?'+'+String(d).replace('.',','):d<0?String(d).replace('.',','):'='}
                   </td>
