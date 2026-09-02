@@ -654,6 +654,72 @@ function statoGiornata(st,g,perGiorno){
 const Campo=({l,children})=><div><label>{l}</label>{children}</div>;
 const Kpi=({l,v,u,cls})=><div className={'kpi '+(cls||'')}><div className="l">{l}</div><div className="v">{v}{u&&<small> {u}</small>}</div></div>;
 
+/* pannello di registrazione di un esercizio: aggiunge, modifica e cancella le voci di carico.
+   Una voce è {d, set, kg, reps}: set è il numero di serie fatte con quel peso.
+   Le voci vecchie non hanno set — valgono 1, così lo storico di prima resta leggibile. */
+function PannelloEx({id,st,up,oggi,form,setForm}){
+  const log=[...(st.carichi[id]||[])].sort((a,b)=>a.d.localeCompare(b.d));
+  const ult=log[log.length-1];
+  const scrivi=arr=>{const c={...st.carichi}; if(arr.length) c[id]=arr; else delete c[id]; up({carichi:c});};
+  const leggi=()=>{
+    const kg=parseFloat(String(form.kg).replace(',','.'));
+    const reps=parseInt(form.reps,10);
+    const set=parseInt(form.set,10);
+    if(isNaN(kg)||isNaN(reps)||reps<=0) return null;
+    return {d:form.d||oggi, set:(isNaN(set)||set<=0)?1:set, kg, reps};
+  };
+  const conferma=()=>{
+    const v=leggi(); if(!v) return;
+    const cur=st.carichi[id]||[];
+    if(form.mod!=null&&cur[form.mod]) scrivi(cur.map((x,j)=>j===form.mod?v:x));
+    else scrivi([...cur,v]);
+    // dopo l'inserimento tengo peso e serie: di solito la voce dopo è simile
+    setForm({d:v.d, set:String(v.set), kg:String(v.kg), reps:'', mod:null});
+  };
+  const modifica=x=>{
+    const j=(st.carichi[id]||[]).indexOf(x);
+    setForm({d:x.d, set:String(x.set||1), kg:String(x.kg), reps:String(x.reps), mod:j});
+  };
+  const inMod=form.mod!=null;
+  return<div style={{marginTop:10,padding:11,background:'var(--paper)',borderRadius:'var(--r)'}}>
+    <div className="row" style={{gap:6,flexWrap:'wrap'}}>
+      <input type="date" value={form.d||''} onChange={e=>setForm({...form,d:e.target.value})} style={{maxWidth:150}}/>
+      <input type="number" placeholder="serie" value={form.set||''}
+        onChange={e=>setForm({...form,set:e.target.value})} style={{maxWidth:76}}/>
+      <input type="number" placeholder="rip." value={form.reps||''}
+        onChange={e=>setForm({...form,reps:e.target.value})}
+        onKeyDown={e=>{if(e.key==='Enter')conferma();}} style={{maxWidth:76}}/>
+      <input type="number" step="0.5" placeholder={ult?'kg (ult. '+ult.kg+')':'kg'} value={form.kg||''}
+        onChange={e=>setForm({...form,kg:e.target.value})} style={{maxWidth:96}}/>
+      <button className="btn small" onClick={conferma}>{inMod?'Salva':'Aggiungi'}</button>
+      {inMod&&<button className="btn ghost small" onClick={()=>setForm({d:oggi,set:'',kg:'',reps:'',mod:null})}>Annulla</button>}
+    </div>
+    <div className="note" style={{marginTop:6}}>
+      {inMod?'Stai modificando una riga esistente.'
+            :'Serie e ripetizioni di quel peso: per 3×10 metti 3 e 10. Se le serie sono andate diverse fra loro, mettine una riga per ciascuna.'}
+    </div>
+    <div style={{marginTop:9}}>
+      <textarea placeholder="Note: che attrezzo hai usato, il buco del sedile, fastidi…" rows={2}
+        value={(st.noteEx||{})[id]||''} style={{width:'100%',resize:'vertical'}}
+        onChange={e=>{const n={...(st.noteEx||{})};
+          if(e.target.value.trim()) n[id]=e.target.value; else delete n[id];
+          up({noteEx:n});}}/>
+      <div className="sr">La nota resta sull'esercizio, non sulla singola riga.</div>
+    </div>
+    {log.length>0
+      ? <div style={{marginTop:9}}>
+          {[...log].reverse().map((x,j)=><div className="row" key={j} style={{padding:'4px 0',borderBottom:'1px solid var(--line)'}}>
+            <span className="sr" style={{minWidth:76}}>{new Date(x.d+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'short'})}</span>
+            <b style={{fontSize:13}}>{(x.set||1)} × {x.reps} · {String(x.kg).replace('.',',')} kg</b>
+            <div className="spacer"/>
+            <button className="btn ghost small" onClick={()=>modifica(x)}>modifica</button>
+            <button className="btn ghost small" onClick={()=>scrivi((st.carichi[id]||[]).filter(y=>y!==x))}>×</button>
+          </div>)}
+        </div>
+      : <div className="note" style={{marginTop:9}}>Nessuna riga registrata per questo esercizio.</div>}
+  </div>;
+}
+
 function App(){
   const [st,setSt]=useState(carica);
   const [tab,setTab]=useState('oggi');
@@ -664,7 +730,7 @@ function App(){
   const [mese,setMese]=useState(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1);});
   const [q,setQ]=useState('');
   const [exApri,setExApri]=useState(null);          // quale esercizio ha il pannello aperto
-  const [exForm,setExForm]=useState({d:'',kg:'',reps:''});
+  const [exForm,setExForm]=useState({d:'',set:'',kg:'',reps:'',mod:null});
   const [nuovoEx,setNuovoEx]=useState('');
   const [sync,setSync]=useState({stato:FIREBASE.projectId?'collego':'locale',quando:null});
   const primoCaricamento=React.useRef(true);
@@ -1235,60 +1301,19 @@ function App(){
           const log=[...(st.carichi[id]||[])].sort((a,b)=>a.d.localeCompare(b.d));
           const ult=log[log.length-1];
           const aperto=exApri===id;
-          const salva=()=>{
-            const kg=parseFloat(String(exForm.kg).replace(',','.'));
-            const reps=parseInt(exForm.reps,10);
-            if(isNaN(kg)||isNaN(reps)||reps<=0) return;
-            up({carichi:{...st.carichi,[id]:[...(st.carichi[id]||[]),{d:exForm.d||oggi,kg,reps}]}});
-            setExForm({...exForm,d:exForm.d||oggi,kg:String(kg),reps:''});   // il peso resta solo dopo che l'hai scritto tu, per le serie successive
-          };
-          const togli=x=>{
-            const resto=(st.carichi[id]||[]).filter(y=>!(y.d===x.d&&y.kg===x.kg&&y.reps===x.reps));
-            const c={...st.carichi}; if(resto.length) c[id]=resto; else delete c[id];
-            up({carichi:c});
-          };
           return<div className="ex" key={i}>
             <div className="nm">{e.n}<span className="sr">{e.s}</span>
               <div className="spacer"/>
-              {ult&&<span className="sr">ultimo: {ult.kg} kg × {ult.reps}</span>}
+              {ult&&<span className="sr">ultimo: {(ult.set||1)}×{ult.reps} · {ult.kg} kg</span>}
               <button className="btn ghost small" onClick={()=>{
                 if(aperto){setExApri(null);return;}
-                setExApri(id); setExForm({d:oggi,kg:'',reps:'',nota:(st.noteEx||{})[id]||''});
+                setExApri(id); setExForm({d:oggi,set:'',kg:'',reps:'',mod:null});
               }}>{aperto?'Chiudi':'Segna'}</button>
             </div>
             <div className="de">{e.d}</div>
             {!aperto&&(st.noteEx||{})[id]&&<div className="sr" style={{marginTop:6,color:'var(--oliva)'}}>Nota: {st.noteEx[id]}</div>}
-            {!aperto&&log.length>1&&<div className="sr" style={{marginTop:6}}>Progressione: {log.slice(-6).map(x=>x.kg+'×'+x.reps).join(' · ')}</div>}
-            {aperto&&<div style={{marginTop:10,padding:11,background:'var(--paper)',borderRadius:'var(--r)'}}>
-              <div className="row" style={{gap:6,flexWrap:'wrap'}}>
-                <input type="date" value={exForm.d} onChange={ev=>setExForm({...exForm,d:ev.target.value})} style={{maxWidth:150}}/>
-                <input type="number" step="0.5" placeholder={ult?'kg (ultimo '+ult.kg+')':'kg'} value={exForm.kg}
-                  onChange={ev=>setExForm({...exForm,kg:ev.target.value})} style={{maxWidth:80}}/>
-                <input type="number" placeholder="rip." value={exForm.reps}
-                  onChange={ev=>setExForm({...exForm,reps:ev.target.value})}
-                  onKeyDown={ev=>{if(ev.key==='Enter')salva();}} style={{maxWidth:80}}/>
-                <button className="btn small" onClick={salva}>Aggiungi</button>
-              </div>
-              <div className="note" style={{marginTop:6}}>Una riga per serie. Dopo la prima il peso resta, così per le serie successive cambi solo le ripetizioni.</div>
-              <div style={{marginTop:9}}>
-                <textarea placeholder="Note: come sono andate, che attrezzo hai usato, fastidi, il buco per il sedile…"
-                  value={(st.noteEx||{})[id]||''} rows={2} style={{width:'100%',resize:'vertical'}}
-                  onChange={ev=>{const n={...(st.noteEx||{})};
-                    if(ev.target.value.trim()) n[id]=ev.target.value; else delete n[id];
-                    up({noteEx:n});}}/>
-                <div className="sr">La nota resta sull'esercizio, non sulla singola serie.</div>
-              </div>
-              {log.length>0
-                ? <div style={{marginTop:9}}>
-                    {[...log].reverse().map((x,j)=><div className="row" key={j} style={{padding:'4px 0',borderBottom:'1px solid var(--line)'}}>
-                      <span className="sr" style={{minWidth:78}}>{new Date(x.d+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'short'})}</span>
-                      <b style={{fontSize:13}}>{String(x.kg).replace('.',',')} kg × {x.reps}</b>
-                      <div className="spacer"/>
-                      <button className="btn ghost small" onClick={()=>togli(x)}>×</button>
-                    </div>)}
-                  </div>
-                : <div className="note" style={{marginTop:9}}>Nessuna serie registrata per questo esercizio.</div>}
-            </div>}
+            {!aperto&&log.length>1&&<div className="sr" style={{marginTop:6}}>Progressione: {log.slice(-6).map(x=>x.kg+' kg×'+x.reps).join(' · ')}</div>}
+            {aperto&&<PannelloEx id={id} st={st} up={up} oggi={oggi} form={exForm} setForm={setExForm}/>}
           </div>;
         })}
       </div>)}
@@ -1305,10 +1330,10 @@ function App(){
             return<div className="ex" key={i}>
               <div className="nm">{e.n}
                 <div className="spacer"/>
-                {ult&&<span className="sr">ultimo: {ult.kg} kg × {ult.reps}</span>}
+                {ult&&<span className="sr">ultimo: {(ult.set||1)}×{ult.reps} · {ult.kg} kg</span>}
                 <button className="btn ghost small" onClick={()=>{
                   if(exApri===id){setExApri(null);return;}
-                  setExApri(id); setExForm({d:oggi,kg:'',reps:''});
+                  setExApri(id); setExForm({d:oggi,set:'',kg:'',reps:'',mod:null});
                 }}>{exApri===id?'Chiudi':'Segna'}</button>
                 <button className="btn ghost small" onClick={()=>{
                   if(!confirm('Tolgo "'+e.n+'"? Sparisce anche lo storico dei carichi.')) return;
@@ -1324,38 +1349,7 @@ function App(){
                   setExApri(null);
                 }}>×</button>
               </div>
-              {exApri===id&&<div style={{marginTop:10,padding:11,background:'var(--paper)',borderRadius:'var(--r)'}}>
-                <div className="row" style={{gap:6,flexWrap:'wrap'}}>
-                  <input type="date" value={exForm.d} onChange={ev=>setExForm({...exForm,d:ev.target.value})} style={{maxWidth:150}}/>
-                  <input type="number" step="0.5" placeholder={ult?'kg (ultimo '+ult.kg+')':'kg'} value={exForm.kg}
-                    onChange={ev=>setExForm({...exForm,kg:ev.target.value})} style={{maxWidth:80}}/>
-                  <input type="number" placeholder="rip." value={exForm.reps}
-                    onChange={ev=>setExForm({...exForm,reps:ev.target.value})} style={{maxWidth:80}}/>
-                  <button className="btn small" onClick={()=>{
-                    const kg=parseFloat(String(exForm.kg).replace(',','.')), reps=parseInt(exForm.reps,10);
-                    if(isNaN(kg)||isNaN(reps)||reps<=0) return;
-                    up({carichi:{...st.carichi,[id]:[...(st.carichi[id]||[]),{d:exForm.d||oggi,kg,reps}]}});
-                    setExForm({...exForm,reps:''});
-                  }}>Aggiungi</button>
-                </div>
-                <textarea placeholder="Note" rows={2} style={{width:'100%',marginTop:8,resize:'vertical'}}
-                  value={(st.noteEx||{})[id]||''}
-                  onChange={ev=>{const n={...(st.noteEx||{})};
-                    if(ev.target.value.trim()) n[id]=ev.target.value; else delete n[id];
-                    up({noteEx:n});}}/>
-                {log.length>0
-                  ? <div style={{marginTop:9}}>{[...log].reverse().map((x,j)=><div className="row" key={j} style={{padding:'4px 0',borderBottom:'1px solid var(--line)'}}>
-                      <span className="sr" style={{minWidth:78}}>{new Date(x.d+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'short'})}</span>
-                      <b style={{fontSize:13}}>{String(x.kg).replace('.',',')} kg × {x.reps}</b>
-                      <div className="spacer"/>
-                      <button className="btn ghost small" onClick={()=>{
-                        const resto=(st.carichi[id]||[]).filter(y=>!(y.d===x.d&&y.kg===x.kg&&y.reps===x.reps));
-                        const c={...st.carichi}; if(resto.length) c[id]=resto; else delete c[id];
-                        up({carichi:c});
-                      }}>×</button>
-                    </div>)}</div>
-                  : <div className="note" style={{marginTop:9}}>Nessuna serie registrata.</div>}
-              </div>}
+              {exApri===id&&<PannelloEx id={id} st={st} up={up} oggi={oggi} form={exForm} setForm={setExForm}/>}
               {exApri!==id&&(st.noteEx||{})[id]&&<div className="sr" style={{marginTop:6,color:'var(--oliva)'}}>Nota: {st.noteEx[id]}</div>}
             </div>;
           })}
@@ -1394,7 +1388,7 @@ function App(){
           const l=iso(lunediDi(new Date(x.d+'T12:00:00')));
           (sett[l]=sett[l]||{gg:new Set(),ex:[]});
           sett[l].gg.add(x.d);
-          sett[l].ex.push({n:r.nome,kg:x.kg,reps:x.reps,d:x.d});
+          sett[l].ex.push({n:r.nome,kg:x.kg,reps:x.reps,set:x.set,d:x.d});
         }));
         const settimane=Object.keys(sett).sort().reverse().slice(0,8);
         const dm=s=>new Date(s+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'short'});
@@ -1410,8 +1404,8 @@ function App(){
                 const p=r.log[0], u=r.log[r.log.length-1], d=Math.round((u.kg-p.kg)*10)/10;
                 return<tr key={r.k}>
                   <td>{r.nome}<div className="sr">{r.scheda}</div></td>
-                  <td className="n">{p.kg} kg × {p.reps}</td>
-                  <td className="n">{u.kg} kg × {u.reps}</td>
+                  <td className="n">{(p.set||1)}×{p.reps} · {p.kg} kg</td>
+                  <td className="n">{(u.set||1)}×{u.reps} · {u.kg} kg</td>
                   <td className="n" style={{color:d>0?'var(--ok)':d<0?'var(--warn)':'inherit'}}>
                     {d>0?'+'+String(d).replace('.',','):d<0?String(d).replace('.',','):'='}
                   </td>
@@ -1435,7 +1429,7 @@ function App(){
                 </div>
                 <div className="sr">{[...s.gg].sort().map(g=>{
                   const ex=s.ex.filter(x=>x.d===g);
-                  return dm(g)+': '+ex.map(x=>x.n+' '+x.kg+'×'+x.reps).join(', ');
+                  return dm(g)+': '+ex.map(x=>x.n+' '+(x.set||1)+'×'+x.reps+' con '+x.kg+' kg').join(', ');
                 }).join(' — ')}</div>
               </div>;
             })}
