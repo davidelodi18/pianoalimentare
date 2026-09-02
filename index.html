@@ -663,6 +663,8 @@ function App(){
   const [gAtt,setGAtt]=useState(OGGI);
   const [mese,setMese]=useState(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1);});
   const [q,setQ]=useState('');
+  const [exApri,setExApri]=useState(null);          // quale esercizio ha il pannello aperto
+  const [exForm,setExForm]=useState({d:'',kg:'',reps:''});
   const [sync,setSync]=useState({stato:FIREBASE.projectId?'collego':'locale',quando:null});
   const primoCaricamento=React.useRef(true);
   useEffect(()=>{try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}},[st]);
@@ -1228,20 +1230,55 @@ function App(){
         <div className="row"><h3 style={{marginBottom:0}}>{s.n}</h3><span className="tag">{s.tag}</span></div>
         <div className="hr" style={{margin:'12px 0'}}/>
         {s.ex.map((e,i)=>{
-          const log=(st.carichi[k+'-'+i]||[]);
+          const id=k+'-'+i;
+          const log=[...(st.carichi[id]||[])].sort((a,b)=>a.d.localeCompare(b.d));
           const ult=log[log.length-1];
+          const aperto=exApri===id;
+          const salva=()=>{
+            const kg=parseFloat(String(exForm.kg).replace(',','.'));
+            const reps=parseInt(exForm.reps,10);
+            if(isNaN(kg)||isNaN(reps)||reps<=0) return;
+            up({carichi:{...st.carichi,[id]:[...(st.carichi[id]||[]),{d:exForm.d||oggi,kg,reps}]}});
+            setExForm({d:exForm.d||oggi,kg:String(kg),reps:''});   // tengo il peso: di solito segni più serie di fila
+          };
+          const togli=x=>{
+            const resto=(st.carichi[id]||[]).filter(y=>!(y.d===x.d&&y.kg===x.kg&&y.reps===x.reps));
+            const c={...st.carichi}; if(resto.length) c[id]=resto; else delete c[id];
+            up({carichi:c});
+          };
           return<div className="ex" key={i}>
             <div className="nm">{e.n}<span className="sr">{e.s}</span>
               <div className="spacer"/>
               {ult&&<span className="sr">ultimo: {ult.kg} kg × {ult.reps}</span>}
               <button className="btn ghost small" onClick={()=>{
-                const kg=parseFloat(prompt('Peso usato (kg)?',ult?ult.kg:'')); if(isNaN(kg))return;
-                const reps=parseInt(prompt('Ripetizioni fatte nell\'ultima serie?',ult?ult.reps:'10'))||0;
-                up({carichi:{...st.carichi,[k+'-'+i]:[...log,{d:oggi,kg,reps}]}});
-              }}>Segna</button>
+                if(aperto){setExApri(null);return;}
+                setExApri(id); setExForm({d:oggi,kg:ult?String(ult.kg):'',reps:''});
+              }}>{aperto?'Chiudi':'Segna'}</button>
             </div>
             <div className="de">{e.d}</div>
-            {log.length>1&&<div className="sr" style={{marginTop:6}}>Progressione: {log.slice(-6).map(x=>x.kg+'×'+x.reps).join(' · ')}</div>}
+            {!aperto&&log.length>1&&<div className="sr" style={{marginTop:6}}>Progressione: {log.slice(-6).map(x=>x.kg+'×'+x.reps).join(' · ')}</div>}
+            {aperto&&<div style={{marginTop:10,padding:11,background:'var(--paper)',borderRadius:'var(--r)'}}>
+              <div className="row" style={{gap:6,flexWrap:'wrap'}}>
+                <input type="date" value={exForm.d} onChange={ev=>setExForm({...exForm,d:ev.target.value})} style={{maxWidth:150}}/>
+                <input type="number" step="0.5" placeholder="kg" value={exForm.kg}
+                  onChange={ev=>setExForm({...exForm,kg:ev.target.value})} style={{maxWidth:80}}/>
+                <input type="number" placeholder="rip." value={exForm.reps}
+                  onChange={ev=>setExForm({...exForm,reps:ev.target.value})}
+                  onKeyDown={ev=>{if(ev.key==='Enter')salva();}} style={{maxWidth:80}}/>
+                <button className="btn small" onClick={salva}>Aggiungi</button>
+              </div>
+              <div className="note" style={{marginTop:6}}>Una riga per serie. Il peso resta in memoria fra una serie e l'altra, così devi solo cambiare le ripetizioni.</div>
+              {log.length>0
+                ? <div style={{marginTop:9}}>
+                    {[...log].reverse().map((x,j)=><div className="row" key={j} style={{padding:'4px 0',borderBottom:'1px solid var(--line)'}}>
+                      <span className="sr" style={{minWidth:78}}>{new Date(x.d+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'short'})}</span>
+                      <b style={{fontSize:13}}>{String(x.kg).replace('.',',')} kg × {x.reps}</b>
+                      <div className="spacer"/>
+                      <button className="btn ghost small" onClick={()=>togli(x)}>×</button>
+                    </div>)}
+                  </div>
+                : <div className="note" style={{marginTop:9}}>Nessuna serie registrata per questo esercizio.</div>}
+            </div>}
           </div>;
         })}
       </div>)}
