@@ -241,11 +241,11 @@ const SCAMBI={
   ],
   carb_pranzo:[
     {n:'pane',r:'c',q:60,u:'g'},
+    {n:'pasta o riso',r:'c',q:45,u:'g a crudo'},
+    {n:'patate',r:'c',q:170,u:'g'},
     {n:'pizza margherita al taglio',r:'c',q:110,u:'g'},
     {n:'erbazzone',r:'c',q:150,u:'g',nota:'vale anche 1 pollice'},
     {n:'gnocco fritto o tigella',r:'c',q:100,u:'g',nota:'vale anche 1 pollice'},
-    {n:'pasta o riso',r:'c',q:45,u:'g a crudo'},
-    {n:'patate',r:'c',q:170,u:'g'},
     {n:'piadina',r:'c',q:0.5,u:'piadina',u2:'piadine',solo:true},
     {n:'Insalatissime RioMare',r:'c',q:1,u:'confezione',u2:'confezioni',nota:'vale anche 1 palmo'},
     {n:'crackers o grissini',r:'c',q:40,u:'g'},
@@ -263,9 +263,9 @@ const SCAMBI={
   ],
   carb_cena:[
     {n:'pane',r:'c',q:60,u:'g'},
+    {n:'pasta o riso',r:'c',q:45,u:'g a crudo'},
     {n:'patate o purè',r:'c',q:170,u:'g'},
     {n:'polenta',r:'c',q:170,u:'g',nota:'da polenta già pronta'},
-    {n:'pasta o riso',r:'c',q:45,u:'g a crudo'},
     {n:'tigella',r:'c',q:60,u:'g'},
     {n:'crackers o gallette',r:'c',q:40,u:'g'},
   ],
@@ -278,6 +278,7 @@ const SCAMBI={
     {n:'cereali non zuccherati',r:'c',q:50,u:'g'},
   ],
   colaz_prot:[
+    {n:'kefir',r:'p',q:250,u:'g'},
     {n:'latte',r:'p',q:600,u:'ml',nota:'al posto dei soliti 250'},
     {n:'uova sode preparate prima',r:'p',q:3,u:'uova sode',solo:true},
     {n:'fiocchi di latte',r:'p',q:200,u:'g'},
@@ -324,6 +325,19 @@ const FAM_PROT=[
 ];
 const famDi=n=>{for(const [re,f] of FAM_PROT) if(re.test(n)) return f; return null;};
 
+// stessa idea per i carboidrati: altrimenti il piatto propone pane tutti i giorni,
+// perché è il primo della lista, e la pasta non la vedi mai.
+const FAM_CARB=[
+  [/pasta|riso|orzo|farro|cous ?cous/i,'pasta e riso'],
+  [/pane|frisa|piadina|baguette|panino/i,'pane'],
+  [/patat|pur[eè]/i,'patate'],
+  [/gallette|crackers|grissini|fette biscottate/i,'crackers e gallette'],
+  [/legumi|ceci|fagioli|lenticchie/i,'legumi'],
+  [/avena|cereali|muesli|biscotti|gocciole/i,'cereali da colazione'],
+];
+const famCarbDi=n=>{for(const [re,f] of FAM_CARB) if(re.test(n)) return f; return null;};
+const famRuolo=(n,r)=>r==='c'?famCarbDi(n):famDi(n);
+
 // quante volte ogni famiglia è comparsa nei sette giorni che finiscono a `data`.
 // conta solo le voci che portano almeno 10 g di proteine: il grana sull'insalata non è una fonte.
 function usiProteine(st,data){
@@ -336,20 +350,20 @@ function usiProteine(st,data){
       const voci=(pasti[id]||{}).voci;
       if(!Array.isArray(voci)) return;
       voci.forEach(x=>{
-        const o=ALIMENTI.find(z=>z.n===x.n);
-        if(!o||o.p*(x.m||1)<10) return;
-        const f=famDi(x.n);
-        if(f) u[f]=(u[f]||0)+1;
+        const o=ALIMENTI.find(z=>z.n===x.n); if(!o) return;
+        const m=x.m||1;
+        if(o.p*m>=10){ const f=famDi(x.n); if(f) u[f]=(u[f]||0)+1; }
+        if(o.c*m>=15){ const f=famCarbDi(x.n); if(f) u[f]=(u[f]||0)+1; }
       });
     });
   }
   return u;
 }
-// le opzioni proteiche di una lista, dalla meno usata alla più usata.
+// le opzioni di una lista per un dato ruolo, dalla meno usata alla più usata.
 // a parità di usi resta l'ordine originale, che è quello che ha più senso per quel pasto.
-function ordinaProt(lista,usi){
-  return lista.filter(x=>x.r==='p')
-    .map((o,i)=>({o,i,u:usi[famDi(o.n)]||0}))
+function ordinaPer(lista,r,usi){
+  return lista.filter(x=>x.r===r)
+    .map((o,i)=>({o,i,u:usi[famRuolo(o.n,r)]||0}))
     .sort((a,b)=>a.u-b.u||a.i-b.i)
     .map(x=>x.o);
 }
@@ -416,6 +430,8 @@ const ALIMENTI=[
  [['sp','col','ce','pr'],'Pera',1,'pera',85,0.6,22,0.2],
  [['sp','col','ce','pr'],'Arancia',1,'arancia',70,1.4,18,0.2],
  [['sp','col','ce','pr'],'Pesca',1,'pesca',60,1,14,0.3],
+ [['col','sp'],'Kefir naturale',250,'g',160,10,12,8],
+ [['col','sp'],'Kefir alla frutta',250,'g',225,9,30,7],
  [['sp','col','ce','pr'],'Albicocche',3,'albicocche',53,1.5,12,0.4],
  [['sp','col','ce','pr'],'Susine',3,'susine',70,1,17,0.4],
  [['sp','col','ce','pr'],'Melone o anguria',300,'g',90,1.8,21,0.3],
@@ -1026,7 +1042,9 @@ function App(){
     const vivo=oggiQuesto&&A.iniziata;   // giornata già cominciata: mostro cosa resta, non il piano teorico
     const pasti=A.pasti;
     const usi=usiProteine(st,g.data);    // quante volte hai già mangiato ogni fonte nei sette giorni prima di oggi
-    const usate=Object.keys(usi).sort((a,b)=>usi[b]-usi[a]);
+    const CARB_FAM=FAM_CARB.map(x=>x[1]);
+    const usateP=Object.keys(usi).filter(f=>!CARB_FAM.includes(f)).sort((a,b)=>usi[b]-usi[a]);
+    const usateC=Object.keys(usi).filter(f=>CARB_FAM.includes(f)).sort((a,b)=>usi[b]-usi[a]);
     return<>
       <div className="card">
         <div className="row"><div><h2>Pasti — {GIORNI[(new Date(g.data+'T12:00:00').getDay()+6)%7]}</h2>
@@ -1059,8 +1077,10 @@ function App(){
           </div>
           <div className="note">Il palmo è la mano senza le dita, spessore incluso. Il pugno è chiuso. Il pollice è tutto il dito. Sono misure tue, quindi si scalano da sole.</div>
         </>}
-        {usate.length>0&&<div className="note" style={{marginTop:10}}>
-          Fonti proteiche degli ultimi sette giorni: {usate.map(f=>f+' ×'+usi[f]).join(' · ')}. Le proposte qui sotto partono da quelle che hai usato meno.
+        {(usateP.length>0||usateC.length>0)&&<div className="note" style={{marginTop:10}}>
+          {usateP.length>0&&<>Proteine degli ultimi sette giorni: {usateP.map(f=>f+' ×'+usi[f]).join(' · ')}.<br/></>}
+          {usateC.length>0&&<>Carboidrati: {usateC.map(f=>f+' ×'+usi[f]).join(' · ')}.<br/></>}
+          Le proposte qui sotto partono da quelli che hai usato meno.
         </div>}
       </div>
 
@@ -1085,12 +1105,12 @@ function App(){
               ['p','c','g','v'].forEach(r=>{
                 if(q[r]<=0||voci.some(x=>x.r===r)) return;
                 // per le proteine parto dalla fonte che hai usato meno in settimana, non sempre dalla prima della lista
-                const ordP=r==='p'?ordinaProt(SCAMBI[key],usi):null;
+                const ordP=(r==='p'||r==='c')?ordinaPer(SCAMBI[key],r,usi):null;
                 const o=ordP?ordP[0]:SCAMBI[key].find(x=>x.r===r);
                 if(!o) return;
                 if(r==='p'&&q[r]>=3){
                   // due palmi o più: spezzo su due famiglie diverse invece di chiederti sei uova
-                  const alt=ordP.find(x=>famDi(x.n)!==famDi(o.n))||ordP[1];
+                  const alt=ordP.find(x=>famDi(x.n)!==famDi(o.n))||ordP[1];   // due palmi: due fonti diverse
                   const quota=Math.max(1,Math.round(q[r]/2));
                   voci.push({r,o,n:q[r]-quota,testo:quanti(o,q[r]-quota)});
                   if(alt) voci.push({r:'p2',o:alt,n:quota,testo:quanti(alt,quota)});
@@ -1113,10 +1133,10 @@ function App(){
               {m.liste.map(([tit,key])=>{
                 const r=(SCAMBI[key][0]||{}).r, n=q[r]||0;
                 if(n<=0) return null;
-                const opz=r==='p'?ordinaProt(SCAMBI[key],usi):SCAMBI[key].filter(o=>o.r===r);
+                const opz=(r==='p'||r==='c')?ordinaPer(SCAMBI[key],r,usi):SCAMBI[key].filter(o=>o.r===r);
                 return <div key={key} style={{marginBottom:10}}>
                   <div className="note" style={{marginBottom:3}}>{tit} — {pl(n,RUOLO[r][0],RUOLO[r][1])}</div>
-                  {opz.map((o,i)=>{const u=r==='p'?(usi[famDi(o.n)]||0):0;
+                  {opz.map((o,i)=>{const u=(r==='p'||r==='c')?(usi[famRuolo(o.n,r)]||0):0;
                     return <div className="opt" key={i}>
                     <span>{quanti(o,n)}</span>
                     <span className="q">{u>=2?'già '+u+' volte in settimana':(o.nota||(st.grammi?'1 porzione = '+o.q+' '+(o.q===1?o.u:(o.u2||o.u)):''))}</span>
