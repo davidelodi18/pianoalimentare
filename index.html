@@ -459,7 +459,7 @@ const ALIMENTI=[
 ].map((a,i)=>({i,cat:a[0],n:a[1],qb:a[2],ub:a[3],k:a[4],p:a[5],c:a[6],f:a[7]}));
 const SING={carote:'carota',fette:'fetta',gallette:'galletta',biscotti:'biscotto',kiwi:'kiwi',albicocche:'albicocca',susine:'susina'};
 const qtaTesto=(o,m)=>{const v=o.qb*m; const n=Number.isInteger(v)?v:Math.round(v*10)/10;
-  return n+' '+(n===1&&SING[o.ub]?SING[o.ub]:o.ub);};
+  return String(n).replace('.',',')+' '+(n===1&&SING[o.ub]?SING[o.ub]:o.ub);};
 
 const KCAL_PORZ={palmi:145,pugni:135,frutti:70,pollici:99};
 const MEZZO={palmo:'mezzo palmo',pugno:'mezzo pugno',pollice:'mezzo pollice',porzione:'mezza porzione'};
