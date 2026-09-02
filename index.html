@@ -478,14 +478,14 @@ const PORZ_RAPIDE=[
 const SCHEDE={
   pesi_a:{n:'Palestra A',tag:'unico giorno con gambe pesanti',ex:[
     {n:'Stacco rumeno con manubri',s:'3 × 8-10',d:'Manubri davanti alle cosce, ginocchia leggermente piegate e ferme. Spingi il bacino indietro come per chiudere la portiera dell\'auto con il sedere, i manubri scendono lungo le gambe restando a contatto. Schiena dritta. Scendi finché senti tirare dietro le cosce, di solito poco sotto il ginocchio, poi risali spingendo il bacino avanti. È una cerniera dell\'anca, non un piegamento delle ginocchia.'},
-    {n:'Split squat bulgaro',s:'3 × 8 per gamba',d:'Piede posteriore appoggiato su una panca, gamba davanti a un passo di distanza. Scendi in verticale finché la coscia davanti è parallela al pavimento, il ginocchio resta sopra il piede. Parti senza pesi finché l\'equilibrio non è stabile.'},
-    {n:'Panca piana con manubri',s:'3 × 8-12',d:'Gomiti a circa 45 gradi dal busto, non aperti a croce. Scendi controllato fino a sfiorare il petto, spingi senza bloccare i gomiti in alto.'},
+    {n:'Split squat bulgaro o pressa',s:'3 × 8 per gamba',d:'Piede posteriore appoggiato su una panca, gamba davanti a un passo di distanza. Scendi in verticale finché la coscia davanti è parallela al pavimento, il ginocchio resta sopra il piede. Parti senza pesi finché l\'equilibrio non è stabile.'},
+    {n:'Panca piana con manubri o chest press',s:'3 × 8-12',d:'Gomiti a circa 45 gradi dal busto, non aperti a croce. Scendi controllato fino a sfiorare il petto, spingi senza bloccare i gomiti in alto.'},
     {n:'Trazioni o lat machine',s:'3 × 8-12',d:'Tira portando i gomiti verso le costole e finisci stringendo le scapole in basso. Se usi il lat, non tirare dietro la nuca: la sbarra va davanti al viso.'},
     {n:'Plank',s:'3 × 40 secondi',d:'Gomiti sotto le spalle, bacino leggermente retroverso, glutei e addome contratti. Se la schiena si inarca, fermati.'},
   ]},
   pesi_b:{n:'Palestra B',tag:'solo parte alta',ex:[
-    {n:'Spinte sopra la testa con manubri',s:'3 × 8-12',d:'Da seduto con schienale quasi verticale, manubri all\'altezza delle orecchie e gomiti leggermente in avanti, non aperti a croce. Spingi in alto senza inarcare la schiena: se devi inarcare, il peso è troppo.'},
-    {n:'Rematore con manubrio',s:'3 × 10 per lato',d:'Ginocchio e mano dello stesso lato sulla panca, schiena parallela al pavimento. Tira il gomito verso l\'anca, non verso la spalla, e a fine movimento stringi la scapola. Il busto non ruota.'},
+    {n:'Spinte sopra la testa o shoulder press',s:'3 × 8-12',d:'Da seduto con schienale quasi verticale, manubri all\'altezza delle orecchie e gomiti leggermente in avanti, non aperti a croce. Spingi in alto senza inarcare la schiena: se devi inarcare, il peso è troppo.'},
+    {n:'Rematore con manubrio o pulley',s:'3 × 10 per lato',d:'Ginocchio e mano dello stesso lato sulla panca, schiena parallela al pavimento. Tira il gomito verso l\'anca, non verso la spalla, e a fine movimento stringi la scapola. Il busto non ruota.'},
     {n:'Croci ai cavi o pectoral machine',s:'3 × 12',d:'Gomiti leggermente piegati e fissi per tutto il movimento. Chiudi lentamente immaginando di abbracciare qualcosa.'},
     {n:'Curl con manubri',s:'2 × 12',d:'Gomiti fermi vicino ai fianchi, niente slancio con la schiena.'},
     {n:'Push down ai cavi',s:'2 × 12',d:'Gomiti attaccati ai fianchi, si muove solo l\'avambraccio.'},
@@ -493,7 +493,7 @@ const SCHEDE={
     {n:'Hollow hold o crunch ai cavi',s:'3 × 12',d:'Lombare sempre a contatto con il pavimento, il movimento parte dalle costole verso il bacino.'},
   ]},
   pesi_c:{n:'Palestra C',tag:'facoltativa, leggera',ex:[
-    {n:'Panca inclinata con manubri',s:'3 × 10',d:'Inclinazione di circa 30 gradi. Stessa tecnica della panca piana.'},
+    {n:'Panca inclinata o chest press inclinata',s:'3 × 10',d:'Inclinazione di circa 30 gradi. Stessa tecnica della panca piana.'},
     {n:'Lat machine presa stretta',s:'3 × 10',d:'Presa neutra, tira verso lo sterno stringendo le scapole.'},
     {n:'Hip thrust',s:'3 × 12',d:'Schiena appoggiata alla panca sotto le scapole, spingi il bacino verso l\'alto contraendo i glutei, mento verso il petto. Carico moderato: qui non serve strafare.'},
     {n:'Alzate laterali',s:'3 × 15',d:'Peso leggero, sali fino all\'altezza delle spalle senza slanci.'},
@@ -508,7 +508,7 @@ const OGGI=()=>iso(new Date());
 function lunediDi(d){const x=new Date(d);const g=(x.getDay()+6)%7;x.setDate(x.getDate()-g);x.setHours(12);return x;}
 const DEFAULT={
   profilo:{sesso:'m',eta:24,altezza:180,peso:90,lavoro:1.25,protKg:1.8,grassiKg:0.8,pasti:5},
-  registro:{}, pesi:[], carichi:{}, noteEx:{}, grammi:false, override:{},
+  registro:{}, pesi:[], carichi:{}, noteEx:{}, mieiEx:[], grammi:false, override:{},
 };
 const KEY='piano-v2';
 const carica=()=>{try{const s=localStorage.getItem(KEY);return s?{...DEFAULT,...JSON.parse(s)}:DEFAULT;}catch(e){return DEFAULT;}};
@@ -665,6 +665,7 @@ function App(){
   const [q,setQ]=useState('');
   const [exApri,setExApri]=useState(null);          // quale esercizio ha il pannello aperto
   const [exForm,setExForm]=useState({d:'',kg:'',reps:''});
+  const [nuovoEx,setNuovoEx]=useState('');
   const [sync,setSync]=useState({stato:FIREBASE.projectId?'collego':'locale',quando:null});
   const primoCaricamento=React.useRef(true);
   useEffect(()=>{try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}},[st]);
@@ -1292,11 +1293,93 @@ function App(){
         })}
       </div>)}
       {(()=>{
+        // esercizi che aggiungi tu: stessa struttura delle schede, così entrano nel report come gli altri
+        const mie=st.mieiEx||[];
+        return<div className="card">
+          <div className="row"><h3 style={{marginBottom:0}}>I tuoi esercizi</h3><span className="tag">aggiunti da te</span></div>
+          <div className="sub" style={{marginTop:8}}>Per le macchine che usi e che non sono in scheda. Compaiono nel report insieme agli altri.</div>
+          {mie.map((e,i)=>{
+            const id='mio-'+i;
+            const log=[...(st.carichi[id]||[])].sort((a,b)=>a.d.localeCompare(b.d));
+            const ult=log[log.length-1];
+            return<div className="ex" key={i}>
+              <div className="nm">{e.n}
+                <div className="spacer"/>
+                {ult&&<span className="sr">ultimo: {ult.kg} kg × {ult.reps}</span>}
+                <button className="btn ghost small" onClick={()=>{
+                  if(exApri===id){setExApri(null);return;}
+                  setExApri(id); setExForm({d:oggi,kg:'',reps:''});
+                }}>{exApri===id?'Chiudi':'Segna'}</button>
+                <button className="btn ghost small" onClick={()=>{
+                  if(!confirm('Tolgo "'+e.n+'"? Sparisce anche lo storico dei carichi.')) return;
+                  const c={...st.carichi}; delete c[id];
+                  // rinumero le chiavi degli esercizi che vengono dopo, altrimenti si spostano sui carichi sbagliati
+                  const resto=mie.filter((_,j)=>j!==i);
+                  const nc={}; Object.keys(c).forEach(k=>{
+                    const m=k.match(/^mio-(\d+)$/);
+                    if(!m){nc[k]=c[k];return;}
+                    const j=+m[1]; nc[j>i?('mio-'+(j-1)):k]=c[k];
+                  });
+                  up({mieiEx:resto,carichi:nc});
+                  setExApri(null);
+                }}>×</button>
+              </div>
+              {exApri===id&&<div style={{marginTop:10,padding:11,background:'var(--paper)',borderRadius:'var(--r)'}}>
+                <div className="row" style={{gap:6,flexWrap:'wrap'}}>
+                  <input type="date" value={exForm.d} onChange={ev=>setExForm({...exForm,d:ev.target.value})} style={{maxWidth:150}}/>
+                  <input type="number" step="0.5" placeholder={ult?'kg (ultimo '+ult.kg+')':'kg'} value={exForm.kg}
+                    onChange={ev=>setExForm({...exForm,kg:ev.target.value})} style={{maxWidth:80}}/>
+                  <input type="number" placeholder="rip." value={exForm.reps}
+                    onChange={ev=>setExForm({...exForm,reps:ev.target.value})} style={{maxWidth:80}}/>
+                  <button className="btn small" onClick={()=>{
+                    const kg=parseFloat(String(exForm.kg).replace(',','.')), reps=parseInt(exForm.reps,10);
+                    if(isNaN(kg)||isNaN(reps)||reps<=0) return;
+                    up({carichi:{...st.carichi,[id]:[...(st.carichi[id]||[]),{d:exForm.d||oggi,kg,reps}]}});
+                    setExForm({...exForm,reps:''});
+                  }}>Aggiungi</button>
+                </div>
+                <textarea placeholder="Note" rows={2} style={{width:'100%',marginTop:8,resize:'vertical'}}
+                  value={(st.noteEx||{})[id]||''}
+                  onChange={ev=>{const n={...(st.noteEx||{})};
+                    if(ev.target.value.trim()) n[id]=ev.target.value; else delete n[id];
+                    up({noteEx:n});}}/>
+                {log.length>0
+                  ? <div style={{marginTop:9}}>{[...log].reverse().map((x,j)=><div className="row" key={j} style={{padding:'4px 0',borderBottom:'1px solid var(--line)'}}>
+                      <span className="sr" style={{minWidth:78}}>{new Date(x.d+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'short'})}</span>
+                      <b style={{fontSize:13}}>{String(x.kg).replace('.',',')} kg × {x.reps}</b>
+                      <div className="spacer"/>
+                      <button className="btn ghost small" onClick={()=>{
+                        const resto=(st.carichi[id]||[]).filter(y=>!(y.d===x.d&&y.kg===x.kg&&y.reps===x.reps));
+                        const c={...st.carichi}; if(resto.length) c[id]=resto; else delete c[id];
+                        up({carichi:c});
+                      }}>×</button>
+                    </div>)}</div>
+                  : <div className="note" style={{marginTop:9}}>Nessuna serie registrata.</div>}
+              </div>}
+              {exApri!==id&&(st.noteEx||{})[id]&&<div className="sr" style={{marginTop:6,color:'var(--oliva)'}}>Nota: {st.noteEx[id]}</div>}
+            </div>;
+          })}
+          <div className="row" style={{gap:6,marginTop:12}}>
+            <input placeholder="Nome dell'esercizio" value={nuovoEx} onChange={ev=>setNuovoEx(ev.target.value)}
+              onKeyDown={ev=>{if(ev.key==='Enter'&&nuovoEx.trim()){up({mieiEx:[...mie,{n:nuovoEx.trim()}]});setNuovoEx('');}}}/>
+            <button className="btn small" onClick={()=>{
+              if(!nuovoEx.trim()) return;
+              up({mieiEx:[...mie,{n:nuovoEx.trim()}]}); setNuovoEx('');
+            }}>Aggiungi</button>
+          </div>
+        </div>;
+      })()}
+      {(()=>{
         // storico dei carichi: le voci sono salvate come carichi['scheda-indice'] = [{d,kg,reps}]
         const righe=[];
         Object.keys(st.carichi||{}).forEach(k=>{
           const log=st.carichi[k]||[]; if(!log.length) return;
           const [sk,si]=k.split('-');
+          if(sk==='mio'){
+            const e=(st.mieiEx||[])[+si]; if(!e) return;
+            righe.push({k, nome:e.n, scheda:'I tuoi esercizi', log:[...log].sort((a,b)=>a.d.localeCompare(b.d))});
+            return;
+          }
           const sch=SCHEDE[sk]; if(!sch||!sch.ex[+si]) return;
           righe.push({k, nome:sch.ex[+si].n, scheda:sch.n, log:[...log].sort((a,b)=>a.d.localeCompare(b.d))});
         });
