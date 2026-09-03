@@ -528,10 +528,12 @@ const SCHEDE={
 // date sempre in ora locale: toISOString userebbe il fuso di Greenwich e in Italia sposterebbe tutto di un giorno
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const OGGI=()=>iso(new Date());
+const fmtD=d=>new Date(d+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'long'});
+const fmtDG=d=>new Date(d+'T12:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
 function lunediDi(d){const x=new Date(d);const g=(x.getDay()+6)%7;x.setDate(x.getDate()-g);x.setHours(12);return x;}
 const DEFAULT={
   profilo:{sesso:'m',eta:24,altezza:180,peso:90,lavoro:1.25,protKg:1.8,grassiKg:0.8,pasti:5},
-  registro:{}, pesi:[], carichi:{}, noteEx:{}, mieiEx:[], grammi:false, override:{},
+  registro:{}, pesi:[], carichi:{}, noteEx:{}, noteSess:{}, mieiEx:[], grammi:false, override:{},
 };
 const KEY='piano-v2';
 const carica=()=>{try{const s=localStorage.getItem(KEY);return s?{...DEFAULT,...JSON.parse(s)}:DEFAULT;}catch(e){return DEFAULT;}};
@@ -757,6 +759,10 @@ function App(){
   const [exApri,setExApri]=useState(null);          // quale esercizio ha il pannello aperto
   const [exForm,setExForm]=useState({d:'',set:'',kg:'',reps:'',mod:null});
   const [nuovoEx,setNuovoEx]=useState('');
+  const [vistaPal,setVistaPal]=useState('allenamenti');   // allenamenti | schede | progressi
+  const [sessApri,setSessApri]=useState(null);            // quale allenamento è aperto
+  const [periodo,setPeriodo]=useState('settimana');       // filtro dell'export
+  const [aggEx,setAggEx]=useState({ex:'',set:'',reps:'',kg:''});
   const [sync,setSync]=useState({stato:FIREBASE.projectId?'collego':'locale',quando:null});
   const primoCaricamento=React.useRef(true);
   useEffect(()=>{try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}},[st]);
@@ -807,13 +813,13 @@ function App(){
     s.onerror=()=>{clearTimeout(t);ko(new Error('script'));};
     document.head.appendChild(s);
   });
-  const scaricaReport=async lun=>{
+  const scaricaPDF=async(sel,nome)=>{
     if(pdfCorso) return;
     setPdfCorso(true);
     try{
       if(!window.html2canvas) await caricaScript('https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js');
       if(!window.jspdf) await caricaScript('https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js');
-      const nodi=[...document.querySelectorAll('.card')].filter(n=>!n.classList.contains('noprint'));
+      const nodi=[...document.querySelectorAll(sel||'.card')].filter(n=>!n.classList.contains('noprint'));
       if(!nodi.length) throw new Error('niente da esportare');
       const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
       const LARG=210, MARG=10, UTILE=LARG-MARG*2, ALT=297-MARG*2;
@@ -825,7 +831,7 @@ function App(){
         pdf.addImage(cv.toDataURL('image/jpeg',0.92),'JPEG',MARG,y,UTILE,Math.min(h,ALT));
         y+=Math.min(h,ALT)+4;
       }
-      pdf.save('piano-report-'+lun+'.pdf');
+      pdf.save('piano-'+nome+'.pdf');
     }catch(e){
       alert('Non sono riuscito a generare il PDF (probabilmente manca la rete). Apro la finestra di stampa: da lì scegli "Salva come PDF".');
       window.print();
@@ -1358,8 +1364,12 @@ function App(){
         {fase==='off'&&<div className="ok">Fuori stagione puoi fare le tre sedute complete, gambe incluse: non c'è il campo a togliere recupero. Dal 7 settembre si passa alla sola seduta B.</div>}
         {fase==='prep'&&<div className="warn">Fino al 1 ottobre fai solo la <b>seduta B</b>, due volte a settimana. Con tre allenamenti sul campo le gambe sono già oltre il limite: aggiungere squat e affondi ora significa arrivare a metà ottobre stanco invece che pronto.</div>}
         {!!conflitti.length&&<div className="alert" style={{marginTop:10}}>Hai gambe pesanti a meno di 48 ore da una partita. Sposta la seduta A al martedì: è l'unica finestra pulita della settimana.</div>}
+        <div className="row" style={{gap:6,marginTop:12}}>
+          {[['allenamenti','Allenamenti'],['schede','Schede'],['progressi','Progressi']].map(([k,n])=>
+            <button key={k} className={'btn '+(vistaPal===k?'':'ghost')+' small'} onClick={()=>setVistaPal(k)}>{n}</button>)}
+        </div>
       </div>
-      {Object.entries(SCHEDE).map(([k,s])=><div className="card" key={k}>
+      {vistaPal==='schede'&&Object.entries(SCHEDE).map(([k,s])=><div className="card" key={k}>
         <div className="row"><h3 style={{marginBottom:0}}>{s.n}</h3><span className="tag">{s.tag}</span></div>
         <div className="hr" style={{margin:'12px 0'}}/>
         {s.ex.map((e,i)=>{
@@ -1383,7 +1393,7 @@ function App(){
           </div>;
         })}
       </div>)}
-      {(()=>{
+      {vistaPal==='schede'&&(()=>{
         // esercizi che aggiungi tu: stessa struttura delle schede, così entrano nel report come gli altri
         const mie=st.mieiEx||[];
         return<div className="card">
@@ -1429,7 +1439,139 @@ function App(){
           </div>
         </div>;
       })()}
-      {(()=>{
+      {vistaPal==='allenamenti'&&(()=>{
+        // gli allenamenti non sono un dato nuovo: sono le righe di carico raggruppate per data.
+        // così tutto quello che hai già segnato compare qui senza doverlo rifare.
+        const tuttiEx=[
+          ...Object.entries(SCHEDE).flatMap(([k,sc])=>sc.ex.map((e,i)=>({id:k+'-'+i,n:e.n,g:sc.n}))),
+          ...(st.mieiEx||[]).map((e,i)=>({id:'mio-'+i,n:e.n,g:'I tuoi esercizi'})),
+        ];
+        const nomeDi=id=>(tuttiEx.find(x=>x.id===id)||{}).n||null;
+
+        const sess={};
+        Object.keys(st.carichi||{}).forEach(id=>{
+          if(!nomeDi(id)) return;
+          (st.carichi[id]||[]).forEach((x,j)=>{
+            (sess[x.d]=sess[x.d]||[]).push({...x,id,j,n:nomeDi(id)});
+          });
+        });
+        const date=Object.keys(sess).sort().reverse();
+
+        const aggiungi=data=>{
+          const reps=parseInt(aggEx.reps,10), set=parseInt(aggEx.set,10);
+          const kg=aggEx.kg===''?0:parseFloat(String(aggEx.kg).replace(',','.'));
+          if(!aggEx.ex||isNaN(reps)||reps<=0||isNaN(kg)) return;
+          const pre=st.carichi[aggEx.ex]||[];
+          up({carichi:{...st.carichi,[aggEx.ex]:[...pre,{d:data,set:(isNaN(set)||set<=0)?1:set,kg,reps}]}});
+          setAggEx({...aggEx,set:'',reps:'',kg:''});   // tengo l'esercizio: spesso segni più serie di fila
+        };
+        const elimina=v=>{
+          const resto=(st.carichi[v.id]||[]).filter((_,k)=>k!==v.j);
+          const c={...st.carichi}; if(resto.length) c[v.id]=resto; else delete c[v.id];
+          up({carichi:c});
+        };
+
+        // filtro dell'export: da quale data in poi prendere gli allenamenti
+        const daQuando=()=>{
+          const d=new Date(oggi+'T12:00:00');
+          if(periodo==='settimana') return iso(lunediDi(new Date()));
+          if(periodo==='mese'){d.setDate(d.getDate()-30);return iso(d);}
+          if(periodo==='trimestre'){d.setDate(d.getDate()-90);return iso(d);}
+          return '0000-00-00';
+        };
+        const seleziona=periodo==='singolo'
+          ? (sessApri?[sessApri]:[])
+          : date.filter(d=>d>=daQuando());
+
+        return<>
+          <div className="card noprint">
+            <div className="row"><h3 style={{marginBottom:0}}>Nuovo allenamento</h3></div>
+            <div className="sub" style={{marginTop:8}}>Scegli la data, poi aggiungi gli esercizi uno alla volta. Compaiono subito nell'elenco qui sotto.</div>
+            <div className="row" style={{gap:6,flexWrap:'wrap',marginTop:10}}>
+              <input type="date" value={sessApri||oggi} onChange={e=>setSessApri(e.target.value)} style={{maxWidth:150}}/>
+              <select value={aggEx.ex} onChange={e=>setAggEx({...aggEx,ex:e.target.value})} style={{maxWidth:260}}>
+                <option value="">Scegli l'esercizio…</option>
+                {['Palestra A','Palestra B','Palestra C','I tuoi esercizi'].map(gr=>{
+                  const dentro=tuttiEx.filter(x=>x.g===gr);
+                  return dentro.length?<optgroup key={gr} label={gr}>
+                    {dentro.map(x=><option key={x.id} value={x.id}>{x.n}</option>)}
+                  </optgroup>:null;
+                })}
+              </select>
+              <input type="number" placeholder="serie" value={aggEx.set}
+                onChange={e=>setAggEx({...aggEx,set:e.target.value})} style={{maxWidth:76}}/>
+              <input type="number" placeholder="rip." value={aggEx.reps}
+                onChange={e=>setAggEx({...aggEx,reps:e.target.value})}
+                onKeyDown={e=>{if(e.key==='Enter')aggiungi(sessApri||oggi);}} style={{maxWidth:76}}/>
+              <input type="number" step="0.5" placeholder="kg" value={aggEx.kg}
+                onChange={e=>setAggEx({...aggEx,kg:e.target.value})} style={{maxWidth:96}}/>
+              <button className="btn small" onClick={()=>aggiungi(sessApri||oggi)}>Aggiungi</button>
+            </div>
+            <div className="note" style={{marginTop:6}}>Il peso lascialo vuoto per gli esercizi a corpo libero. Dopo aver aggiunto, l'esercizio resta selezionato: per un'altra serie cambi solo i numeri.</div>
+          </div>
+
+          <div className="card noprint">
+            <div className="row"><h3 style={{marginBottom:0}}>Esporta</h3></div>
+            <div className="row" style={{gap:6,flexWrap:'wrap',marginTop:10}}>
+              <select value={periodo} onChange={e=>setPeriodo(e.target.value)} style={{maxWidth:220}}>
+                <option value="singolo">Solo l'allenamento aperto</option>
+                <option value="settimana">Questa settimana</option>
+                <option value="mese">Ultimi 30 giorni</option>
+                <option value="trimestre">Ultimi 90 giorni</option>
+                <option value="tutto">Tutto lo storico</option>
+              </select>
+              <button className="btn" disabled={pdfCorso||!seleziona.length}
+                onClick={()=>scaricaPDF('.sessione','allenamenti-'+periodo)}>
+                {pdfCorso?'Genero…':'Esporta PDF'}
+              </button>
+            </div>
+            <div className="note" style={{marginTop:6}}>
+              {periodo==='singolo'
+                ? (sessApri&&sess[sessApri]?'Esporta il '+fmtD(sessApri)+'.':"Apri un allenamento dall'elenco per esportarlo da solo.")
+                : seleziona.length+(seleziona.length===1?' allenamento nel periodo.':' allenamenti nel periodo.')}
+            </div>
+          </div>
+
+          {date.length===0&&<div className="card"><div className="note">Nessun allenamento registrato. Aggiungi il primo esercizio qui sopra.</div></div>}
+
+          {date.map(d=>{
+            const righe=sess[d];
+            const dentro=seleziona.includes(d);
+            const aperto=sessApri===d;
+            return<div className={'card'+(dentro?' sessione':'')} key={d}>
+              <div className="row">
+                <h3 style={{marginBottom:0}}>{fmtDG(d)}</h3>
+                <span className="tag">{pl(righe.length,'esercizio','esercizi')}</span>
+                <div className="spacer"/>
+                <span className="sr">{righe.reduce((a,x)=>a+(x.set||1),0)} serie</span>
+                <button className="btn ghost small noprint" onClick={()=>setSessApri(aperto?null:d)}>
+                  {aperto?'Chiudi':'Apri'}
+                </button>
+              </div>
+              {aperto
+                ? <div style={{marginTop:10}}>
+                    {righe.map((x,k)=><div className="row" key={k} style={{padding:'5px 0',borderBottom:'1px solid var(--line)'}}>
+                      <span style={{fontSize:13}}>{x.n}</span>
+                      <div className="spacer"/>
+                      <b style={{fontSize:13}}>{(x.set||1)} × {x.reps}{x.kg?' · '+String(x.kg).replace('.',',')+' kg':''}</b>
+                      <button className="btn ghost small noprint" onClick={()=>elimina(x)}>×</button>
+                    </div>)}
+                    <textarea placeholder="Come è andata la seduta" rows={2} style={{width:'100%',marginTop:9,resize:'vertical'}}
+                      value={(st.noteSess||{})[d]||''}
+                      onChange={e=>{const n={...(st.noteSess||{})};
+                        if(e.target.value.trim()) n[d]=e.target.value; else delete n[d];
+                        up({noteSess:n});}}/>
+                  </div>
+                : <>
+                    <div className="sr" style={{marginTop:6}}>{righe.map(x=>x.n+' '+(x.set||1)+'×'+x.reps+(x.kg?' · '+x.kg+' kg':'')).join(' — ')}</div>
+                    {(st.noteSess||{})[d]&&<div className="sr" style={{marginTop:4,color:'var(--oliva)'}}>{st.noteSess[d]}</div>}
+                  </>}
+            </div>;
+          })}
+        </>;
+      })()}
+
+      {vistaPal==='progressi'&&(()=>{
         // storico dei carichi: le voci sono salvate come carichi['scheda-indice'] = [{d,kg,reps}]
         const righe=[];
         Object.keys(st.carichi||{}).forEach(k=>{
@@ -1582,7 +1724,6 @@ function App(){
     const prima=st.pesi.filter(x=>x.d<giorni[0].data).sort((a,b)=>a.d.localeCompare(b.d)).slice(-7);
     const mPrima=media(prima);
     const attesa=(totT-totF)/7700;
-    const fmtD=d=>new Date(d+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'long'});
     return<>
       <div className="card noprint">
         <div className="row"><div><h2>Report settimanale</h2>
@@ -1591,7 +1732,7 @@ function App(){
           <button className="btn ghost small" onClick={()=>{const d=new Date(ancora);d.setDate(d.getDate()-7);setAncora(d);}}>←</button>
           <button className="btn ghost small" onClick={()=>setAncora(lunediDi(new Date()))}>Questa settimana</button>
           <button className="btn ghost small" onClick={()=>{const d=new Date(ancora);d.setDate(d.getDate()+7);setAncora(d);}}>→</button>
-          <button className="btn" disabled={pdfCorso} onClick={()=>scaricaReport(giorni[0].data)}>{pdfCorso?'Genero…':'Esporta PDF'}</button>
+          <button className="btn" disabled={pdfCorso} onClick={()=>scaricaPDF('.card','report-'+giorni[0].data)}>{pdfCorso?'Genero…':'Esporta PDF'}</button>
         </div>
       </div>
 
