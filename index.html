@@ -987,6 +987,15 @@ function App(){
           </div>;
         })}
         <div className="hr"/>
+        {cons.k>0&&<>
+          <div className="note" style={{marginBottom:6}}>Mangiato finora</div>
+          <div className="grid g4" style={{marginBottom:14}}>
+            <Kpi l="Totale" v={cons.k} u={'kcal su '+targetAdj} cls="n"/>
+            <Kpi l="Proteine" v={cons.p} u={'g su '+g.prot} cls="p"/>
+            <Kpi l="Carboidrati" v={cons.c} u={'g su '+g.carb} cls="c"/>
+            <Kpi l="Grassi" v={cons.f} u={'g su '+g.gras} cls="f"/>
+          </div>
+        </>}
         <div className="grid g4">
           <Kpi l={res.k>=0?(oggiQ?'Restano oggi':'Restano'):'Sei oltre di'} v={Math.abs(res.k)} u="kcal" cls="n"/>
           <Kpi l="Proteine" v={res.p>0?res.p:0} u="g da prendere" cls="p"/>
