@@ -57,6 +57,7 @@ input:focus,select:focus{outline:2px solid var(--senape);outline-offset:-1px}
 .kpi.p{border-color:var(--mattone)}.kpi.c{border-color:var(--senape)}.kpi.f{border-color:var(--oliva)}.kpi.n{border-color:var(--ink)}
 .ledger{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;height:210px;margin-top:6px}
 .ldcol{display:flex;flex-direction:column;justify-content:flex-end;height:100%;cursor:pointer}
+.ldwrap{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-end}
 .ldbar{display:flex;flex-direction:column;border:1px solid var(--ink);border-bottom:0}
 .seg-f{background:var(--oliva)}.seg-c{background:var(--senape)}.seg-p{background:var(--mattone)}
 .ldcol.sel .ldbar{outline:2px solid var(--ink);outline-offset:2px}
@@ -1005,7 +1006,7 @@ function App(){
     return<>
       <div className="card">
         <div className="row"><div><h2>Bilancio della settimana</h2>
-          <div className="sub" style={{marginBottom:0}}>Dal {new Date(ancora).toLocaleDateString('it-IT',{day:'numeric',month:'long'})}. Ogni colonna è il budget del giorno diviso nei tre macro.</div></div>
+          <div className="sub" style={{marginBottom:0}}>Dal {new Date(ancora).toLocaleDateString('it-IT',{day:'numeric',month:'long'})}. Ogni colonna è il budget del giorno diviso nei tre macro: l'altezza segue il target, quindi i giorni con allenamento sono più alti. Sotto, il target e quello che hai mangiato.</div></div>
           <div className="spacer"/>
           <button className="btn ghost small" onClick={()=>{const d=new Date(ancora);d.setDate(d.getDate()-7);setAncora(d);}}>←</button>
           <button className="btn ghost small" onClick={()=>setAncora(lunediDi(new Date()))}>Questa settimana</button>
@@ -1015,13 +1016,13 @@ function App(){
         <div className="ledger">{giorni.map((g,i)=>{
           const h=g.target/maxK*100;
           return<div key={i} className={'ldcol'+(sel===g.data?' sel':'')+(g.data===oggi?' oggi':'')} onClick={()=>{setSel(g.data);setTab('pasti');}}>
-            <div className="ldbar" style={{height:h+'%'}}>
+            <div className="ldwrap"><div className="ldbar" style={{height:h+'%'}}>
               <div className="seg-f" style={{height:(g.gras*9/g.target*100)+'%'}}/>
               <div className="seg-c" style={{height:(g.carb*4/g.target*100)+'%'}}/>
               <div className="seg-p" style={{height:(g.prot*4/g.target*100)+'%'}}/>
-            </div>
+            </div></div>
             <div className="ldfoot"><div className="ldday">{G3[i]}</div><div className="ldkcal">{g.target}</div>
-              {consumato(st,g.data).k>0&&<div className={'ldkcal '+(consumato(st,g.data).k>g.target?'neg':'pos')}>{consumato(st,g.data).k}</div>}
+              <div className={'ldkcal '+(consumato(st,g.data).k>g.target?'neg':'pos')}>{consumato(st,g.data).k||'—'}</div>
               <div className="ldact">{g.etichetta||'riposo'}</div></div>
           </div>;})}
         </div>
@@ -1036,14 +1037,15 @@ function App(){
           <Kpi l="Variazione attesa" v={((tot-totT)/7700).toFixed(2)} u="kg" cls="f"/>
         </div>
         <div className="hr"/>
-        <table><thead><tr><th>Giorno</th><th>Attività</th><th className="n">Target</th><th className="n">Pro</th><th className="n">Carb</th><th className="n">Gras</th><th className="n">Mangiato</th><th className="n">Scarto</th></tr></thead>
+        <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
+        <table style={{minWidth:520}}><thead><tr><th>Giorno</th><th>Attività</th><th className="n">Target</th><th className="n">Pro</th><th className="n">Carb</th><th className="n">Gras</th><th className="n">Mangiato</th><th className="n">Scarto</th></tr></thead>
         <tbody>{giorni.map((g,i)=>{const c=consumato(st,g.data);const sc=c.k?c.k-g.target:null;
           return <tr key={i} style={g.data===oggi?{background:'#FBF3E2'}:{}}>
           <td><b>{G3[i]}</b> <span className="note">{g.data.slice(8)}/{g.data.slice(5,7)}</span></td>
           <td className="note">{g.etichetta||'riposo'}</td><td className="n"><b>{g.target}</b></td>
           <td className="n">{g.prot}</td><td className="n">{g.carb}</td><td className="n">{g.gras}</td>
           <td className="n">{c.k||'—'}</td>
-          <td className={'n '+(sc===null?'':sc>0?'neg':'pos')}>{sc===null?'—':(sc>0?'+':'')+sc}</td></tr>;})}</tbody></table>
+          <td className={'n '+(sc===null?'':sc>0?'neg':'pos')}>{sc===null?'—':(sc>0?'+':'')+sc}</td></tr>;})}</tbody></table></div>
         {comp.passati>0&&<div className={Math.abs(comp.scost)<300?'ok':'warn'} style={{marginTop:14}}>
           Su {comp.passati} {comp.passati===1?'giorno registrato':'giorni registrati'} lo scarto è di <b className="mono">{comp.scost>0?'+':''}{comp.scost} kcal</b>.
           {comp.perGiorno===0?' Niente da correggere.':
