@@ -54,6 +54,7 @@ input:focus,select:focus{outline:2px solid var(--senape);outline-offset:-1px}
 .kpi .v{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600;line-height:1.15}
 .kpi .l{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--grigio);font-family:'IBM Plex Mono',monospace}
 .kpi .v small{font-size:12px;font-weight:400;color:var(--grigio)}
+.kpi .v small.riga{display:block;line-height:1.3;margin-top:2px}
 .kpi.p{border-color:var(--mattone)}.kpi.c{border-color:var(--senape)}.kpi.f{border-color:var(--oliva)}.kpi.n{border-color:var(--ink)}
 .ledger{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;height:210px;margin-top:6px}
 .ldcol{display:flex;flex-direction:column;justify-content:flex-end;height:100%;cursor:pointer}
@@ -692,7 +693,8 @@ function statoGiornata(st,g,perGiorno){
 
 /* ===================== UI ===================== */
 const Campo=({l,children})=><div><label>{l}</label>{children}</div>;
-const Kpi=({l,v,u,cls})=><div className={'kpi '+(cls||'')}><div className="l">{l}</div><div className="v">{v}{u&&<small> {u}</small>}</div></div>;
+const Kpi=({l,v,u,cls})=><div className={'kpi '+(cls||'')}><div className="l">{l}</div>
+  <div className="v">{v}{u&&(String(u).length>12?<small className="riga">{u}</small>:<small> {u}</small>)}</div></div>;
 
 /* pannello di registrazione di un esercizio: aggiunge, modifica e cancella le voci di carico.
    Una voce è {d, set, kg, reps}: set è il numero di serie fatte con quel peso.
@@ -1777,7 +1779,8 @@ function App(){
 
       <div className="card">
         <h3 style={{marginBottom:10}}>Giorno per giorno</h3>
-        <table><thead><tr><th>Giorno</th><th>Attività</th><th className="n">Target</th><th className="n">Mangiato</th><th className="n">Scarto</th><th className="n">Proteine</th></tr></thead>
+        <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
+        <table style={{minWidth:520}}><thead><tr><th>Giorno</th><th>Attività</th><th className="n">Target</th><th className="n">Mangiato</th><th className="n">Scarto</th><th className="n">Proteine</th></tr></thead>
         <tbody>{righe.map((r,i)=>{const sc=r.c.k?r.c.k-r.g.target:null;
           return <tr key={i}>
             <td><b>{G3[i]}</b> <span className="note">{r.g.data.slice(8)}/{r.g.data.slice(5,7)}</span></td>
@@ -1787,7 +1790,7 @@ function App(){
             <td className="n">{r.c.p?r.c.p+' / '+r.g.prot:'—'}</td></tr>;})}
           <tr><td colSpan="2"><b>Totale</b></td><td className="n"><b>{totT.toLocaleString('it-IT')}</b></td>
             <td className="n"><b>{totC?totC.toLocaleString('it-IT'):'—'}</b></td><td className="n"/><td className="n"/></tr>
-        </tbody></table>
+        </tbody></table></div>
       </div>
 
       <div className="card">
