@@ -911,7 +911,10 @@ function App(){
           <span className="note">min</span>
           <div className="spacer"/>
           <span className="mono note">{a.fatto?'+'+Math.round(kcalAtt(a,st.profilo.peso)*INTENS[a.inten].k)+' kcal':'—'}</span>
-          <button className={'btn small '+(a.fatto?'on':'ghost')} onClick={()=>{const f={...(reg.fatti||{})};f[i]=!a.fatto;setReg(gAtt,{fatti:f});}}>{a.fatto?'Fatto':'Saltato'}</button>
+          <button className={'btn small '+(reg.fatti&&reg.fatti[i]===true?'on':'ghost')}
+            onClick={()=>{const f={...(reg.fatti||{})};f[i]=true;setReg(gAtt,{fatti:f});}}>Fatto</button>
+          <button className={'btn small '+(reg.fatti&&reg.fatti[i]===false?'on':'ghost')}
+            onClick={()=>{const f={...(reg.fatti||{})};f[i]=false;setReg(gAtt,{fatti:f});}}>Saltato</button>
         </div>):<div className="note">Niente in programma oggi.</div>}
         <div className="row" style={{marginTop:12}}>
           <select id="addatt" defaultValue="pesi_b" style={{maxWidth:220}}>
