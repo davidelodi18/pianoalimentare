@@ -324,10 +324,10 @@ const RUOLO={p:['palmo','palmi'],p2:['palmo','palmi'],c:['pugno','pugni'],g:['po
 const FAM_PROT=[
   [/pollo|tacchino/i,'pollo'],
   [/manzo|vitell|hamburger|tartare|roast ?beef/i,'carne rossa'],
-  [/lonza|maiale|speck|prosciutto|salumi|bresaola/i,'maiale e salumi'],
-  [/salmone|tonno|pesce/i,'pesce'],
+  [/lonza|maiale|speck|prosciutto|salumi|bresaola|salsiccia|mortadella|wurstel/i,'maiale e salumi'],
+  [/salmone|tonno|pesce|gamber|frutti di mare|calamar|cozze|vongole|seppie|merluzzo|platessa|orata|branzino|sushi/i,'pesce'],
   [/uov/i,'uova'],
-  [/grana|parmigian|formaggio|mozzarella|emmental|fontina|ricotta|fiocchi di latte|yogurt|latte/i,'latticini'],
+  [/grana|parmigian|formaggio|mozzarella|emmental|fontina|ricotta|fiocchi di latte|yogurt|latte|stracchino|squacquerone|kefir|skyr/i,'latticini'],
   [/legumi|ceci|fagioli|lenticchie/i,'legumi'],
 ];
 const famDi=n=>{for(const [re,f] of FAM_PROT) if(re.test(n)) return f; return null;};
@@ -336,11 +336,11 @@ const famDi=n=>{for(const [re,f] of FAM_PROT) if(re.test(n)) return f; return nu
 // perché è il primo della lista, e la pasta non la vedi mai.
 const FAM_CARB=[
   [/pasta|riso|orzo|farro|cous ?cous/i,'pasta e riso'],
-  [/pane|frisa|piadina|baguette|panino/i,'pane'],
+  [/pane|frisa|piadina|baguette|panino|focaccia|tigella|toast|kebab/i,'pane'],
   [/patat|pur[eè]/i,'patate'],
   [/gallette|crackers|grissini|fette biscottate/i,'crackers e gallette'],
   [/legumi|ceci|fagioli|lenticchie/i,'legumi'],
-  [/avena|cereali|muesli|biscotti|gocciole/i,'cereali da colazione'],
+  [/avena|cereali|muesli|biscotti|gocciole|porridge/i,'cereali da colazione'],
 ];
 const famCarbDi=n=>{for(const [re,f] of FAM_CARB) if(re.test(n)) return f; return null;};
 const famRuolo=(n,r)=>r==='c'?famCarbDi(n):famDi(n);
@@ -385,116 +385,141 @@ function quanti(o,n){
 /* ============ COSA SI MANGIA DAVVERO ============ */
 // valori per la porzione indicata. Sono medie: servono a capire l'ordine di grandezza, non a fare il bilancio.
 // ingredienti singoli con la loro porzione base; la quantità si regola con − e +
-// [categorie, nome, quantità base, unità, kcal, prot, carb, grassi]
+// [categorie, nome, quantità base, unità, kcal, prot, carb, grassi, sinonimi per la ricerca]
+// i sinonimi non si vedono da nessuna parte: servono solo perché cercando "frutta secca" o "ceci" si trovi qualcosa.
 const ALIMENTI=[
  // carne, pesce, uova
- [['ce','pr'],'Petto di pollo o tacchino',150,'g',248,46,0,5],
- [['ce','pr'],'Manzo o vitello magro',150,'g',225,33,0,10],
- [['ce','pr'],'Lonza di maiale',150,'g',248,40,0,9],
- [['ce','pr'],'Hamburger',150,'g',300,30,0,20],
- [['ce','pr'],'Salmone (trancio)',150,'g',310,33,0,19],
- [['ce','pr'],'Tonno al naturale',1,'scatoletta',90,20,0,1],
- [['ce','pr'],'Merluzzo o pesce bianco',200,'g',180,40,0,2],
- [['ce','pr'],'Gamberi o frutti di mare',150,'g',150,26,1,4],
- [['ce','col','pr'],'Uovo',1,'uovo',78,6.5,0.5,5],
- [['ce','pr','sp'],'Speck',50,'g',150,17,0,9],
- [['ce','pr','sp'],'Prosciutto crudo',50,'g',130,14,0,8],
- [['ce','pr','sp'],'Affettato di pollo o tacchino',50,'g',55,10,0.5,1.5],
- [['ce','pr','sp'],'Bresaola',50,'g',75,16,0,1],
+ [['ce','pr'],'Petto di pollo o tacchino',150,'g',248,46,0,5,'fesa bistecca bianca ai ferri'],
+ [['ce','pr'],'Manzo o vitello magro',150,'g',225,33,0,10,'bistecca fettina straccetti tagliata roast beef'],
+ [['ce','pr'],'Lonza di maiale',150,'g',248,40,0,9,'arista braciola maiale'],
+ [['ce','pr'],'Petto di pollo impanato o cotoletta',150,'g',380,33,15,20,'milanese impanata fritta'],
+ [['ce','pr'],'Hamburger',150,'g',300,30,0,20,'svizzera polpette burger'],
+ [['ce','pr'],'Salmone (trancio)',150,'g',310,33,0,19,'pesce trota'],
+ [['ce','pr'],'Merluzzo o pesce bianco',200,'g',180,40,0,2,'orata branzino nasello sogliola platessa pesce'],
+ [['ce','pr'],'Gamberi o frutti di mare',150,'g',150,26,1,4,'gamberetti calamari cozze vongole seppie pesce'],
+ [['ce','pr'],'Tonno al naturale',1,'scatoletta',90,20,0,1,'pesce scatoletta'],
+ [['ce','pr'],'Tonno sott\'olio sgocciolato',1,'scatoletta',150,21,0,7,'pesce scatoletta'],
+ [['ce','col','pr'],'Uovo',1,'uovo',78,6.5,0.5,5,'uova frittata omelette sodo strapazzate'],
+ [['ce','pr'],'Wurstel',100,'g',270,12,2,24,'hot dog salumi'],
+ [['ce','pr','sp'],'Speck',50,'g',150,17,0,9,'salumi affettato'],
+ [['ce','pr','sp'],'Prosciutto crudo',50,'g',130,14,0,8,'salumi affettato parma'],
+ [['ce','pr','sp'],'Prosciutto cotto',50,'g',55,10,0.5,1.5,'salumi affettato'],
+ [['ce','pr','sp'],'Affettato di pollo o tacchino',50,'g',55,10,0.5,1.5,'fesa salumi affettato'],
+ [['ce','pr','sp'],'Bresaola',50,'g',75,16,0,1,'salumi affettato carne salada'],
  // formaggi e latticini
- [['ce','sp','pr'],'Formaggio stagionato',50,'g',190,13,0,15],
- [['ce','sp','pr','col'],'Grana o parmigiano',30,'g',118,10,0,9],
- [['ce','pr'],'Mozzarella',100,'g',250,18,1,19],
- [['ce','pr'],'Emmental o fontina',50,'g',190,14,0,15],
- [['ce','col','sp'],'Ricotta',100,'g',146,11,3,10],
- [['col','sp','ce'],'Fiocchi di latte',100,'g',98,12,3.5,4],
- [['col','sp'],'Yogurt greco',150,'g',90,15,5,1],
- [['col','sp'],'Yogurt bianco intero',125,'g',80,4,6,4],
- [['col','sp'],'Yogurt alla frutta',125,'g',110,4,17,3],
- [['col'],'Latte',250,'ml',115,8,12,4],
- [['ce','pr'],'Legumi in scatola',150,'g',130,8,18,2],
+ [['ce','sp','pr'],'Formaggio stagionato',50,'g',190,13,0,15,'pecorino provolone asiago taleggio gorgonzola'],
+ [['ce','sp','pr','col'],'Grana o parmigiano',30,'g',118,10,0,9,'parmigiano reggiano grattugiato'],
+ [['ce','pr'],'Mozzarella',100,'g',250,18,1,19,'fiordilatte bufala'],
+ [['ce','pr'],'Emmental o fontina',50,'g',190,14,0,15,'sottilette groviera formaggio'],
+ [['ce','sp','pr','col'],'Stracchino o squacquerone',80,'g',240,14,1,20,'crescenza robiola formaggio fresco'],
+ [['ce','col','sp'],'Ricotta',100,'g',146,11,3,10,'latticini'],
+ [['col','sp','ce'],'Fiocchi di latte',100,'g',98,12,3.5,4,'cottage latticini'],
+ [['col','sp'],'Yogurt greco',150,'g',90,15,5,1,'skyr proteico latticini'],
+ [['col','sp'],'Yogurt bianco intero',125,'g',80,4,6,4,'yogurt naturale latticini'],
+ [['col','sp'],'Yogurt alla frutta',125,'g',110,4,17,3,'yogurt latticini'],
+ [['col'],'Latte',250,'ml',115,8,12,4,'latte parzialmente scremato latticini'],
+ [['ce','pr'],'Legumi in scatola',150,'g',130,8,18,2,'ceci fagioli lenticchie piselli borlotti'],
  // carboidrati
- [['ce','pr','col'],'Pane',50,'g',132,4.5,25,1.5],
- [['ce','pr'],'Pasta o riso',80,'g a crudo',285,10,58,2],
- [['ce','pr'],'Patate o purè',200,'g',155,4,34,1],
- [['ce'],'Polenta',200,'g',170,4,36,1],
- [['ce','pr'],'Tigella',1,'tigella',145,4,26,3],
- [['sp','ce','pr'],'Crackers (anche mini)',30,'g',132,3,22,4.5],
- [['sp','ce'],'Grissini',30,'g',128,4,21,3],
- [['sp','ce'],'Gallette di riso',2,'gallette',70,1.5,15,0.5],
- [['sp'],'Schiacciatine o tarallini',30,'g',143,3.5,21,5],
- [['col'],'Biscotti secchi',30,'g',125,2.5,23,3],
- [['col'],'Biscotti frollini',30,'g',144,2,19,7],
- [['col','sp'],'Gocciole',2,'biscotti',82,1.1,10.5,3.7],
- [['col'],'Fette biscottate',2,'fette',80,2.5,15,1.5],
- [['col'],'Marmellata o miele',15,'g',45,0,11,0],
- [['col'],'Cereali da colazione',50,'g',190,4,38,2],
- [['col','sp'],'Cereali al cioccolato (tipo Extra)',45,'g',218,3.7,26,10],
+ [['ce','pr','col'],'Pane',50,'g',132,4.5,25,1.5,'pagnotta michetta ciabatta baguette integrale'],
+ [['ce','pr'],'Pasta o riso',80,'g a crudo',285,10,58,2,'spaghetti penne risotto farro orzo cous cous primo'],
+ [['ce','pr'],'Gnocchi di patate',200,'g',320,8,62,2,'chicche primo'],
+ [['ce','pr'],'Patate o purè',200,'g',155,4,34,1,'patate al forno lesse'],
+ [['ce'],'Polenta',200,'g',170,4,36,1,''],
+ [['ce','pr'],'Tigella',1,'tigella',145,4,26,3,'crescentina'],
+ [['ce','pr','sp'],'Focaccia o pizza bianca',100,'g',300,7,45,10,'schiacciata pane condito'],
+ [['sp','ce','pr'],'Crackers (anche mini)',30,'g',132,3,22,4.5,'cracker salatini'],
+ [['sp','ce'],'Grissini',30,'g',128,4,21,3,'grissino torinesi'],
+ [['sp','ce'],'Gallette di riso',2,'gallette',70,1.5,15,0.5,'gallette di mais'],
+ [['sp'],'Schiacciatine o tarallini',30,'g',143,3.5,21,5,'taralli sfoglie salatini'],
+ [['col'],'Biscotti secchi',30,'g',125,2.5,23,3,'biscotti colazione oro'],
+ [['col'],'Biscotti frollini',30,'g',144,2,19,7,'biscotti al burro'],
+ [['col','sp'],'Gocciole',2,'biscotti',82,1.1,10.5,3.7,'biscotti con cioccolato pepite'],
+ [['col'],'Fette biscottate',2,'fette',80,2.5,15,1.5,'fette'],
+ [['col'],'Marmellata o miele',15,'g',45,0,11,0,'confettura'],
+ [['col','sp'],'Crema spalmabile alla nocciola',20,'g',107,1,12,6,'nutella cioccolato spalmabile'],
+ [['col'],'Cereali da colazione',50,'g',190,4,38,2,'corn flakes muesli fiocchi'],
+ [['col','sp'],'Fiocchi di avena o porridge',50,'g',185,6,32,3,'avena oats overnight'],
+ [['col','sp'],'Cereali al cioccolato (tipo Extra)',45,'g',218,3.7,26,10,'kellogg cioccolato'],
  // verdura
- [['ce','pr'],'Carote',2,'carote',60,1.5,12,0.5],
- [['ce','pr'],'Insalata',100,'g',16,1.4,2,0.2],
- [['ce','pr'],'Verdura cotta',200,'g',60,3,8,1],
- [['ce','pr'],'Pomodori',150,'g',27,1.4,5,0.3],
- [['ce','pr'],'Zucchine o melanzane',200,'g',40,3,5,0.5],
+ [['ce','pr'],'Carote',2,'carote',60,1.5,12,0.5,'pinzimonio crude verdura'],
+ [['ce','pr'],'Insalata',100,'g',16,1.4,2,0.2,'lattuga rucola valeriana misticanza songino verdura'],
+ [['ce','pr'],'Verdura cotta',200,'g',60,3,8,1,'spinaci bietole broccoli cavolfiore fagiolini verdura'],
+ [['ce','pr'],'Pomodori',150,'g',27,1.4,5,0.3,'pomodorini datterini verdura'],
+ [['ce','pr'],'Zucchine o melanzane',200,'g',40,3,5,0.5,'peperoni verdure grigliate verdura'],
+ [['ce','pr'],'Minestrone o passato di verdure',300,'g',120,4,18,3,'vellutata zuppa crema di verdure'],
  // frutta
- [['sp','col','ce','pr'],'Mela',1,'mela',78,0.5,20,0.3],
- [['sp','col','ce','pr'],'Banana',1,'banana',95,1,24,0.3],
- [['sp','col','ce','pr'],'Pera',1,'pera',85,0.6,22,0.2],
- [['sp','col','ce','pr'],'Arancia',1,'arancia',70,1.4,18,0.2],
- [['sp','col','ce','pr'],'Pesca',1,'pesca',60,1,14,0.3],
- [['col','sp'],'Barretta proteica',1,'barretta',200,20,18,6],
- [['col','sp'],'Kefir naturale',250,'g',160,10,12,8],
- [['col','sp'],'Kefir alla frutta',250,'g',225,9,30,7],
- [['sp','col','ce','pr'],'Albicocche',3,'albicocche',53,1.5,12,0.4],
- [['sp','col','ce','pr'],'Susine',3,'susine',70,1,17,0.4],
- [['sp','col','ce','pr'],'Melone o anguria',300,'g',90,1.8,21,0.3],
- [['sp','col'],'Kiwi',2,'kiwi',90,1.6,22,0.7],
- [['sp','col'],'Frutti di bosco',150,'g',65,1.5,13,0.6],
- [['sp','col'],'Uva',150,'g',104,1,27,0.3],
+ [['sp','col','ce','pr'],'Mela',1,'mela',78,0.5,20,0.3,'frutta'],
+ [['sp','col','ce','pr'],'Banana',1,'banana',95,1,24,0.3,'frutta'],
+ [['sp','col','ce','pr'],'Pera',1,'pera',85,0.6,22,0.2,'frutta'],
+ [['sp','col','ce','pr'],'Arancia',1,'arancia',70,1.4,18,0.2,'frutta agrumi'],
+ [['sp','col','ce','pr'],'Mandarini',3,'mandarini',80,1,19,0.3,'clementine frutta agrumi'],
+ [['sp','col','ce','pr'],'Pesca',1,'pesca',60,1,14,0.3,'frutta'],
+ [['col','sp'],'Kefir naturale',250,'g',160,10,12,8,'yogurt da bere latticini'],
+ [['col','sp'],'Kefir alla frutta',250,'g',225,9,30,7,'yogurt da bere latticini'],
+ [['sp','col','ce','pr'],'Albicocche',3,'albicocche',53,1.5,12,0.4,'frutta'],
+ [['sp','col','ce','pr'],'Susine',3,'susine',70,1,17,0.4,'prugne frutta'],
+ [['sp','col','ce','pr'],'Melone o anguria',300,'g',90,1.8,21,0.3,'cocomero frutta'],
+ [['sp','col'],'Kiwi',2,'kiwi',90,1.6,22,0.7,'frutta'],
+ [['sp','col'],'Ananas',200,'g',80,0.8,20,0.2,'frutta'],
+ [['sp','col'],'Frutti di bosco',150,'g',65,1.5,13,0.6,'fragole mirtilli lamponi more frutta'],
+ [['sp','col'],'Uva',150,'g',104,1,27,0.3,'frutta'],
+ [['sp','col'],'Datteri o frutta disidratata',30,'g',85,0.8,20,0.2,'uvetta fichi secchi albicocche secche prugne secche'],
  // grassi
- [['ce','pr'],'Olio EVO',1,'cucchiaio',90,0,0,10],
- [['sp','ce','col'],'Mandorle',20,'g',116,4,4,10],
- [['sp','ce','col'],'Noci',20,'g',131,3,3,13],
- [['sp','ce','col'],'Cioccolato fondente',20,'g',120,2,4,10],
- [['sp','col'],'Burro di arachidi',20,'g',118,5,4,10],
- [['ce','pr'],'Avocado',70,'g',112,1.4,6,10.5],
+ [['ce','pr'],'Olio EVO',1,'cucchiaio',90,0,0,10,'olio condimento'],
+ [['sp','ce','col'],'Mandorle',20,'g',116,4,4,10,'frutta secca noccioline'],
+ [['sp','ce','col'],'Noci',20,'g',131,3,3,13,'frutta secca'],
+ [['sp','ce','col'],'Frutta secca mista',20,'g',123,4,4,11,'pistacchi anacardi nocciole arachidi noci mix'],
+ [['sp','ce','col'],'Cioccolato fondente',20,'g',120,2,4,10,'cioccolata quadretti'],
+ [['sp','col'],'Burro di arachidi',20,'g',118,5,4,10,'crema di arachidi spalmabile'],
+ [['ce','pr'],'Avocado',70,'g',112,1.4,6,10.5,'guacamole'],
+ [['ce','pr','col'],'Burro',10,'g',75,0,0,8,'burro sul pane condimento'],
+ [['ce','pr'],'Maionese, ketchup o salse',1,'cucchiaio',90,0,1,9,'salsa rosa senape condimento'],
+ [['ce','pr'],'Pesto',30,'g',135,3,2,13,'sugo condimento'],
  // piatti già pronti, tipici del pranzo fuori
- [['pr'],'Pasta al ragù',1,'porzione',550,20,75,17],
- [['pr'],'Pasta al pomodoro',1,'porzione',450,13,75,11],
- [['pr','ce'],'Cappellacci, tortelli o tortellini',1,'porzione',550,22,65,20],
- [['pr','ce'],'Lasagne',1,'porzione',600,25,50,32],
- [['pr','ce'],'Pizza margherita',1,'pizza intera',850,35,105,30],
- [['pr'],'Pizza al taglio',1,'trancio',400,15,53,13],
- [['pr'],'Piadina farcita',1,'piadina',600,25,55,30],
- [['pr','ce','sp'],'Piadina (solo la base)',1,'piadina',300,8,45,10],
- [['pr','ce'],'Salsiccia',100,'g',300,16,1,26],
- [['pr','ce','sp'],'Mortadella',50,'g',158,7,0.5,14],
- [['col','pr','ce','sp'],'Formaggio spalmabile',30,'g',80,2,1,7.5],
- [['pr','ce'],'Quiche o torta salata',120,'g',330,10,24,21],
- [['pr','ce'],'Pan brioche salato farcito',80,'g',290,10,26,16],
- [['pr','ce'],'Grigliata mista',300,'g',720,60,2,52],
- [['pr','ce'],'Pizza margherita (intera)',1,'pizza',900,38,105,33],
- [['pr','ce'],'Pizza farcita (intera)',1,'pizza',1150,50,110,55],
- [['pr'],'Panino con pollo o tacchino',1,'panino',450,32,45,13],
- [['pr'],'Panino con salumi e formaggio',1,'panino',620,30,55,30],
- [['pr'],'Toast prosciutto e formaggio',1,'toast',400,22,35,18],
- [['pr'],'Erbazzone',150,'g',400,12,32,25],
- [['pr'],'Gnocco fritto',100,'g',365,8,37,21],
- [['pr'],'Insalatona con pollo o tonno',1,'porzione',450,35,25,22],
- [['pr'],'Insalatissime RioMare',1,'confezione',320,20,35,10],
- [['pr'],'Cotoletta con patatine',1,'porzione',750,35,55,40],
- [['pr'],'Hamburger con patatine',1,'porzione',900,40,70,50],
+ [['pr'],'Pasta al ragù',1,'porzione',550,20,75,17,'tagliatelle bolognese primo'],
+ [['pr'],'Pasta al pomodoro',1,'porzione',450,13,75,11,'primo'],
+ [['pr','ce'],'Pasta al pesto, panna o carbonara',1,'porzione',620,18,72,28,'amatriciana condita primo'],
+ [['pr','ce'],'Risotto',1,'porzione',450,10,65,15,'primo'],
+ [['pr','ce'],'Cappellacci, tortelli o tortellini',1,'porzione',550,22,65,20,'tortellini in brodo primo pasta ripiena'],
+ [['pr','ce'],'Lasagne',1,'porzione',600,25,50,32,'pasta al forno primo'],
+ [['pr'],'Pizza al taglio',1,'trancio',400,15,53,13,'trancio focaccia farcita'],
+ [['pr'],'Piadina farcita',1,'piadina',600,25,55,30,'piada'],
+ [['pr','ce','sp'],'Piadina (solo la base)',1,'piadina',300,8,45,10,'piada'],
+ [['pr','ce'],'Salsiccia',100,'g',300,16,1,26,'luganega'],
+ [['pr','ce','sp'],'Mortadella',50,'g',158,7,0.5,14,'salumi affettato'],
+ [['col','pr','ce','sp'],'Formaggio spalmabile',30,'g',80,2,1,7.5,'philadelphia latticini'],
+ [['pr','ce'],'Quiche o torta salata',120,'g',330,10,24,21,'rustico sfogliata'],
+ [['pr','ce'],'Pan brioche salato farcito',80,'g',290,10,26,16,''],
+ [['pr','ce'],'Grigliata mista',300,'g',720,60,2,52,'carne alla brace'],
+ [['pr','ce'],'Pizza margherita (intera)',1,'pizza',900,38,105,33,'pizzeria'],
+ [['pr','ce'],'Pizza farcita (intera)',1,'pizza',1150,50,110,55,'pizzeria quattro formaggi diavola'],
+ [['pr'],'Panino con pollo o tacchino',1,'panino',450,32,45,13,'sandwich bar'],
+ [['pr'],'Panino con salumi e formaggio',1,'panino',620,30,55,30,'sandwich bar'],
+ [['pr'],'Toast prosciutto e formaggio',1,'toast',400,22,35,18,'bar'],
+ [['pr'],'Kebab',1,'kebab',700,35,60,35,'piadina kebab'],
+ [['pr'],'Sushi o poke',1,'porzione',550,28,70,15,'giapponese bowl'],
+ [['pr'],'Erbazzone',150,'g',400,12,32,25,'scarpazzone'],
+ [['pr'],'Gnocco fritto',100,'g',365,8,37,21,'crescentine fritte torta fritta'],
+ [['pr'],'Insalatona con pollo o tonno',1,'porzione',450,35,25,22,'insalata mista ricca'],
+ [['pr'],'Insalatissime RioMare',1,'confezione',320,20,35,10,'scatoletta pronta'],
+ [['pr'],'Cotoletta con patatine',1,'porzione',750,35,55,40,'menu fritto'],
+ [['pr'],'Hamburger con patatine',1,'porzione',900,40,70,50,'fast food mcdonald burger king menu'],
  // colazione fuori casa e sfizi
- [['col'],'Cornetto o brioche',1,'cornetto',300,6,38,14],
- [['col','sp'],'Merendina della macchinetta',1,'merendina',220,3,30,10],
- [['col'],'Cappuccino',1,'tazza',90,5,7,5],
- [['col'],'Zucchero nel tè o caffè',1,'cucchiaino',20,0,5,0],
- [['x'],'Birra media',1,'birra',200,2,16,0],
- [['x'],'Bicchiere di vino',1,'bicchiere',125,0,4,0],
- [['x'],'Dolce o dessert',1,'porzione',350,5,45,16],
- [['x'],'Gelato',1,'coppetta',250,5,30,12],
- [['x'],'Patatine o snack salato',1,'busta',270,3,26,17],
-].map((a,i)=>({i,cat:a[0],n:a[1],qb:a[2],ub:a[3],k:a[4],p:a[5],c:a[6],f:a[7]}));
+ [['col'],'Cornetto o brioche',1,'cornetto',300,6,38,14,'croissant bar'],
+ [['col','sp'],'Merendina della macchinetta',1,'merendina',220,3,30,10,'snack distributore'],
+ [['col','sp'],'Barretta proteica',1,'barretta',200,20,18,6,'proteica snack'],
+ [['col'],'Cappuccino',1,'tazza',90,5,7,5,'latte macchiato bar'],
+ [['col'],'Zucchero nel tè o caffè',1,'cucchiaino',20,0,5,0,'bustina'],
+ [['x'],'Birra media',1,'birra',200,2,16,0,'bionda alcol'],
+ [['x'],'Bicchiere di vino',1,'bicchiere',125,0,4,0,'lambrusco rosso bianco alcol'],
+ [['x'],'Spritz o cocktail',1,'bicchiere',180,0,16,0,'aperol negroni gin tonic aperitivo alcol'],
+ [['x'],'Amaro o superalcolico',1,'bicchierino',110,0,8,0,'grappa whisky digestivo alcol'],
+ [['x'],'Bibita zuccherata o succo',1,'lattina',140,0,35,0,'coca cola aranciata the freddo succo di frutta'],
+ [['x'],'Aperitivo con stuzzichini',1,'giro',450,8,40,28,'apericena tagliere salatini'],
+ [['x'],'Dolce o dessert',1,'porzione',350,5,45,16,'torta tiramisù crostata'],
+ [['x'],'Gelato',1,'coppetta',250,5,30,12,'cono gelateria'],
+ [['x'],'Patatine o snack salato',1,'busta',270,3,26,17,'chips noccioline snack'],
+].map((a,i)=>({i,cat:a[0],n:a[1],qb:a[2],ub:a[3],k:a[4],p:a[5],c:a[6],f:a[7],al:a[8]||''}));
 const SING={carote:'carota',fette:'fetta',gallette:'galletta',biscotti:'biscotto',kiwi:'kiwi',albicocche:'albicocca',susine:'susina'};
 // plurale delle unità che nel database sono scritte al singolare: "1,5 mele", non "1,5 mela"
 const PLUR={mela:'mele',pera:'pere',banana:'banane',arancia:'arance',pesca:'pesche',uovo:'uova',
@@ -778,6 +803,8 @@ function App(){
   const [gAtt,setGAtt]=useState(OGGI);
   const [mese,setMese]=useState(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1);});
   const [q,setQ]=useState('');
+  const [tutte,setTutte]=useState(false);   // mostra tutte le voci del pasto, non solo le prime
+
   const [exApri,setExApri]=useState(null);          // quale esercizio ha il pannello aperto
   const [exForm,setExForm]=useState({d:'',set:'',kg:'',reps:'',mod:null});
   const [nuovoEx,setNuovoEx]=useState('');
@@ -946,9 +973,16 @@ function App(){
               return {k:s2.k+Math.round(x.k*mm),p:s2.p+Math.round(x.p*mm),c:s2.c+Math.round(x.c*mm),f:s2.f+Math.round(x.f*mm)};},{k:0,p:0,c:0,f:0});
             setReg(gAtt,{pasti:{...(reg.pasti||{}),[m.id]:{voci,...t}}});
           };
-          const cambiaQ=(i,d)=>{const v=v0.voci.map((x,j)=>j===i?{...x,m:Math.max(0.5,Math.round(((x.m||1)+d)*2)/2)}:x);scrivi(v);};
+          // passo delle quantità: mezza porzione di norma, un quarto sulle voci piccole a peso
+          // (grissini, cioccolato, mandorle), dove mezza porzione è già il doppio di quello che hai preso.
+          const passoDi=x=>{const o=ALIMENTI.find(z=>z.n===x.n);
+            return (o&&/^(g|ml)/.test(o.ub)&&o.k<160)?0.25:0.5;};
+          const cambiaQ=(i,segno)=>{const v=v0.voci.map((x,j)=>{
+            if(j!==i) return x;
+            const pa=passoDi(x);
+            return {...x,m:Math.max(pa,Math.round(((x.m||1)+segno*pa)*100)/100)};});scrivi(v);};
           // con la ricerca cerco fra tutti gli alimenti, altrimenti mostro quelli tipici del pasto
-          const lista=q ? ALIMENTI.filter(a=>a.n.toLowerCase().includes(q.toLowerCase()))
+          const lista=q ? ALIMENTI.filter(a=>(a.n+' '+a.al).toLowerCase().includes(q.toLowerCase().trim()))
                         : ALIMENTI.filter(a=>a.cat.includes(CAT_PASTO[m.id])||a.cat.includes('x'));
           return <div className="meal" key={m.id}>
             <div className="mealhead">
@@ -958,7 +992,7 @@ function App(){
                 : (()=>{const a=adattato(m);return <span className="m">
                     {[a.palmi&&pl(a.palmi,'palmo','palmi'),a.pugni&&pl(a.pugni,'pugno','pugni'),a.pollici&&pl(a.pollici,'pollice','pollici')].filter(Boolean).join(' · ')||'niente'}
                     {res.k<=0?' · budget esaurito':''}</span>;})()}
-              <button className="btn ghost small" onClick={()=>{setApri(aperto?null:m.id);setQ('');}}>{aperto?'Chiudi':'Segna'}</button>
+              <button className="btn ghost small" onClick={()=>{setApri(aperto?null:m.id);setQ('');setTutte(false);}}>{aperto?'Chiudi':'Segna'}</button>
               {stato(m)==='aperto'&&<button className="btn ghost small" onClick={()=>
                 setReg(gAtt,{pasti:{...(reg.pasti||{}),[m.id]:{saltato:true,voci:[],k:0,p:0,c:0,f:0}}})}>Saltato</button>}
               {stato(m)==='saltato'&&<button className="btn ghost small" onClick={()=>{
@@ -974,18 +1008,21 @@ function App(){
                 <span>{x.n}<span className="note"> · {o?qtaTesto(o,mm):(x.u||'')}</span></span>
                 <span className="q">
                   {Math.round(x.k*mm)} kcal
-                  <button className="btn ghost small" style={{marginLeft:8,padding:'1px 7px'}} onClick={()=>cambiaQ(i,-0.5)}>−</button>
-                  <button className="btn ghost small" style={{marginLeft:3,padding:'1px 7px'}} onClick={()=>cambiaQ(i,0.5)}>+</button>
+                  <button className="btn ghost small" style={{marginLeft:8,padding:'1px 7px'}} onClick={()=>cambiaQ(i,-1)}>−</button>
+                  <button className="btn ghost small" style={{marginLeft:3,padding:'1px 7px'}} onClick={()=>cambiaQ(i,1)}>+</button>
                   <button className="btn ghost small" style={{marginLeft:3,padding:'1px 7px'}}
                     onClick={()=>scrivi(v.voci.filter((_,j)=>j!==i))}>×</button></span>
               </div>;})}
               {aperto&&<>
                 <div className="hr" style={{margin:'12px 0'}}/>
-                <input placeholder="Cerca fra tutti gli alimenti — salmone, speck, carote…" value={q} onChange={e=>setQ(e.target.value)} style={{marginBottom:10}}/>
+                <input placeholder="Cerca fra tutti gli alimenti — frutta secca, salumi, primo…" value={q} onChange={e=>setQ(e.target.value)} style={{marginBottom:10}}/>
                 <div className="row" style={{gap:6}}>
-                  {lista.slice(0,30).map(a=><span className="chip" key={a.i}
+                  {((q||tutte)?lista:lista.slice(0,24)).map(a=><span className="chip" key={a.i}
                     onClick={()=>{setQ('');scrivi([...v.voci,{n:a.n,m:1,k:a.k,p:a.p,c:a.c,f:a.f}]);}}>
                     + {a.n} <span className="note">{a.qb} {a.ub}</span></span>)}
+                  {!q&&!tutte&&lista.length>24&&<span className="chip" onClick={()=>setTutte(true)}>
+                    ⋯ altre {lista.length-24} voci</span>}
+                  {!q&&tutte&&lista.length>24&&<span className="chip" onClick={()=>setTutte(false)}>⋯ mostra meno</span>}
                   {!lista.length&&<span className="note">Niente con questo nome. Usa le porzioni qui sotto.</span>}
                 </div>
                 <div className="hr" style={{margin:'12px 0'}}/>
