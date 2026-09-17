@@ -973,10 +973,10 @@ function App(){
               return {k:s2.k+Math.round(x.k*mm),p:s2.p+Math.round(x.p*mm),c:s2.c+Math.round(x.c*mm),f:s2.f+Math.round(x.f*mm)};},{k:0,p:0,c:0,f:0});
             setReg(gAtt,{pasti:{...(reg.pasti||{}),[m.id]:{voci,...t}}});
           };
-          // passo delle quantità: mezza porzione di norma, un quarto sulle voci piccole a peso
-          // (grissini, cioccolato, mandorle), dove mezza porzione è già il doppio di quello che hai preso.
+          // passo delle quantità: un quarto di porzione su tutto ciò che si pesa (pasta 80 g -> scatti da 20 g,
+          // grissini 30 g -> scatti da 7,5 g), mezza porzione sulle cose che si contano (uova, tigelle, panini).
           const passoDi=x=>{const o=ALIMENTI.find(z=>z.n===x.n);
-            return (o&&/^(g|ml)/.test(o.ub)&&o.k<160)?0.25:0.5;};
+            return (o&&/^(g|ml)/.test(o.ub))?0.25:0.5;};
           const cambiaQ=(i,segno)=>{const v=v0.voci.map((x,j)=>{
             if(j!==i) return x;
             const pa=passoDi(x);
