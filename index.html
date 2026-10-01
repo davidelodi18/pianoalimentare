@@ -110,7 +110,10 @@ td.n,th.n{font-family:'IBM Plex Mono',monospace;text-align:right}
 @media(max-width:820px){.calc{min-height:58px}.cala{font-size:8px}.calk{display:none}}
 .bar{height:110px;display:flex;align-items:flex-end;gap:3px;border-bottom:1px solid var(--line)}
 .bar i{flex:1;background:var(--ink);opacity:.8;display:block}
+/* il nome in chiaro al posto della tendina, solo in stampa */
+.soloprint{display:none}
 @media print{
+  .soloprint{display:inline!important}
   @page{size:A4;margin:14mm}
   body{background:#fff;font-size:10.5pt}
   header,nav,.noprint{display:none!important}
@@ -191,6 +194,7 @@ const ATT={
   calcetto:    {n:'Calcetto o partitella',met:7.0,def:60,gambe:true},
   bici:        {n:'Bici',              met:7.5,def:60,gambe:false},
   camminata:   {n:'Camminata',         met:4.3,def:45,gambe:false},
+  nuoto:       {n:'Nuoto',             met:6.0,def:45,gambe:false},
   altro:       {n:'Altro',             met:6.0,def:60,gambe:false},
 };
 // deficit applicato per tipo di giornata: più profondo a riposo, leggero quando ti alleni
@@ -199,7 +203,7 @@ const INTENS={leggera:{n:'Più leggero del solito',k:0.8},normale:{n:'Come previ
 const COLORE=t=>t.startsWith('futsal')?'var(--mattone)':t.startsWith('pesi')?'var(--oliva)':'var(--senape)';
 
 /* ============ CALENDARIO STAGIONALE ============ */
-// Preparazione 7 set – 1 ott: campo lun/mer/gio. Campionato: campo lun + partita gio.
+// Preparazione 7 set – 1 ott: campo lun/mer/gio. Campionato: campo lun + partita gio, palestra A mar, B ven, C dom.
 const SETT_PREP=[
   [{t:'futsal_allen',min:90,q:'sera'}], [{t:'pesi_b',min:60,q:'sera'}],
   [{t:'futsal_allen',min:90,q:'sera'}], [{t:'futsal_allen',min:90,q:'sera'}],
@@ -209,6 +213,12 @@ const SETT_CAMP=[
   [{t:'futsal_allen',min:90,q:'sera'}], [{t:'pesi_a',min:60,q:'sera'}],
   [], [{t:'futsal_part',min:60,q:'sera'}],
   [{t:'pesi_b',min:60,q:'sera'}], [], [{t:'pesi_c',min:60,q:'sera'}],
+];
+// 2 – 14 ottobre: finita la preparazione il campo torna a due sere e rientrano le gambe in palestra
+const SETT_TRANS=[
+  [{t:'futsal_allen',min:90,q:'sera'}], [{t:'pesi_a',min:60,q:'sera'}],
+  [], [{t:'futsal_allen',min:90,q:'sera'}],
+  [{t:'pesi_b',min:60,q:'sera'}], [], [],
 ];
 const SETT_OFF=[
   [], [{t:'pesi_b',min:60,q:'sera'}], [], [{t:'pesi_b',min:60,q:'sera'}],
@@ -545,32 +555,132 @@ const PORZ_RAPIDE=[
  {n:'Verdura',k:60,p:2,c:6,f:3},
 ];
 
+/* ============ LIBRERIA ESERCIZI ============ */
+// Una voce per attrezzo: panca con manubri e chest press sono esercizi diversi, così i carichi restano confrontabili.
+// I carichi si salvano sotto l'id della libreria: lo stesso esercizio in due schede ha un solo storico.
+// c = gruppo muscolare, m = tipo di movimento, f = come si fa, mu = muscoli, k = consiglio
+const CATEGORIE=['Petto','Schiena','Spalle','Braccia','Addome','Gambe'];
+const LIB=[
+  // ---- petto
+  {id:'panca-piana-bil',n:'Panca piana bilanciere',c:'Petto',m:'Spinta orizzontale',f:'Sdraiato, piedi a terra, scapole strette. Scendi col bilanciere fino a sfiorare il petto e spingi in alto.',mu:'Petto, tricipiti, deltoide anteriore',k:'Esercizio base per la forza.'},
+  {id:'panca-piana-man',n:'Panca piana manubri',c:'Petto',m:'Spinta orizzontale',f:'Parti coi manubri sopra il petto a braccia tese. Gomiti a circa 45 gradi dal busto, non aperti a croce. Scendi finché i gomiti sono poco sotto la panca e risali.',mu:'Petto, tricipiti, deltoide anteriore',k:'Più escursione, corregge gli squilibri tra i due lati.'},
+  {id:'chest-press',n:'Chest press',c:'Petto',m:'Spinta orizzontale',f:'Seduto con la schiena appoggiata, maniglie all\'altezza del petto. Spingi in avanti senza bloccare i gomiti e torna lento.',mu:'Petto, tricipiti',k:'Guidata, sicura anche a cedimento. Segna nelle note la regolazione del sedile.'},
+  {id:'piegamenti',n:'Piegamenti',c:'Petto',m:'Spinta orizzontale',f:'Mani sotto le spalle, corpo dritto dai talloni alla testa. Scendi col petto verso terra e spingi su.',mu:'Petto, tricipiti, core',k:'Per progredire: zavorra o piedi rialzati.'},
+  {id:'panca-incl-bil',n:'Panca inclinata bilanciere',c:'Petto',m:'Spinta inclinata',f:'Schienale a 30-45 gradi. Abbassa il bilanciere sulla parte alta del petto e spingi verso l\'alto.',mu:'Petto alto, deltoide anteriore',k:'Panca a 30-45 gradi, non di più: oltre lavorano le spalle.'},
+  {id:'panca-incl-man',n:'Panca inclinata manubri',c:'Petto',m:'Spinta inclinata',f:'Schienale a 30-45 gradi, manubri sopra le spalle. Scendi ai lati del petto alto e risali.',mu:'Petto alto, deltoide anteriore',k:'Come col bilanciere, con più escursione.'},
+  {id:'chest-press-incl',n:'Chest press inclinata',c:'Petto',m:'Spinta inclinata',f:'Alla macchina con lo schienale inclinato, maniglie all\'altezza del petto alto. Spingi in avanti e verso l\'alto senza bloccare i gomiti, torna lento.',mu:'Petto alto, deltoide anteriore, tricipiti',k:'Stessa macchina e stessa regolazione ogni volta, altrimenti i carichi non si confrontano.'},
+  {id:'panca-declinata',n:'Panca declinata',c:'Petto',m:'Spinta declinata',f:'Piedi bloccati, testa più in basso del bacino. Abbassa il bilanciere sulla parte bassa del petto e spingi.',mu:'Petto basso, tricipiti',k:'Serve un compagno o il rack.'},
+  {id:'dip',n:'Dip alle parallele',c:'Petto',m:'Spinta declinata',f:'In appoggio a braccia tese, busto inclinato in avanti. Piega i gomiti finché le spalle scendono sotto i gomiti e risali.',mu:'Petto basso, tricipiti',k:'Busto in avanti. Se non arrivi a 6 ripetizioni usa la macchina assistita.'},
+  {id:'croci-man',n:'Croci manubri',c:'Petto',m:'Isolamento',f:'Sdraiato, manubri uniti sopra il petto. Apri le braccia ad arco fino all\'altezza del petto e richiudi.',mu:'Petto',k:'Gomiti leggermente piegati e fermi per tutto il movimento.'},
+  {id:'pectoral-machine',n:'Pectoral machine',c:'Petto',m:'Isolamento',f:'Schiena appoggiata, avambracci o mani sulle leve all\'altezza delle spalle. Chiudi davanti al petto immaginando di abbracciare qualcosa e riapri lento.',mu:'Petto',k:'Buona a fine allenamento.'},
+  {id:'croci-cavi-ba',n:'Croci ai cavi basso-alto',c:'Petto',m:'Isolamento',f:'Cavi in basso, un passo avanti. Porta le mani dal basso verso l\'alto fino all\'altezza del mento.',mu:'Petto alto',k:'Tensione costante, niente slancio.'},
+  {id:'croci-cavi-medie',n:'Croci ai cavi medie',c:'Petto',m:'Isolamento',f:'Cavi all\'altezza del petto, un passo avanti. Chiudi le braccia ad arco davanti al petto e riapri.',mu:'Petto',k:'Cavi all\'altezza del petto, gomiti morbidi e fissi.'},
+  {id:'croci-cavi-ab',n:'Croci ai cavi alto-basso',c:'Petto',m:'Isolamento',f:'Cavi in alto, busto leggermente inclinato. Porta le mani in basso fino a incrociarle davanti al bacino.',mu:'Petto basso',k:'Chiudi le mani davanti al bacino.'},
+  {id:'pullover-man',n:'Pullover manubrio',c:'Petto',m:'Isolamento',f:'Sdraiato, manubrio a braccia tese sopra il petto. Portalo dietro la testa ad arco e riportalo su.',mu:'Petto, gran dorsale',k:'Movimento lento, bacino basso.'},
+  // ---- schiena
+  {id:'trazioni',n:'Trazioni alla sbarra',c:'Schiena',m:'Tirata verticale',f:'Appeso a braccia tese, presa poco più larga delle spalle. Tira finché il mento supera la sbarra e scendi lento.',mu:'Gran dorsale, bicipiti',k:'Anche assistite o con elastico.'},
+  {id:'lat-avanti',n:'Lat machine avanti',c:'Schiena',m:'Tirata verticale',f:'Seduto, cosce bloccate, presa larga. Tira la barra fino al petto portando i gomiti verso le costole e finisci stringendo le scapole in basso.',mu:'Gran dorsale, bicipiti',k:'Tira al petto, mai dietro la nuca.'},
+  {id:'lat-stretta',n:'Lat machine presa stretta',c:'Schiena',m:'Tirata verticale',f:'Seduto con la maniglia a triangolo, busto appena inclinato indietro. Tira allo sterno stringendo le scapole e risali controllando.',mu:'Gran dorsale, bicipiti',k:'Presa neutra con il triangolo.'},
+  {id:'pulldown-tese',n:'Pulldown braccia tese',c:'Schiena',m:'Tirata verticale',f:'In piedi, busto leggermente inclinato, braccia tese. Porta la barra verso le cosce senza piegare i gomiti.',mu:'Gran dorsale',k:'Isola il dorsale senza i bicipiti.'},
+  {id:'vertical-row',n:'Vertical row',c:'Schiena',m:'Tirata orizzontale',f:'Petto sul cuscino, braccia tese sulle maniglie. Tira portando i gomiti indietro e stringi le scapole.',mu:'Dorsale, romboidi, trapezio medio',k:'L\'appoggio al petto toglie lavoro alla zona lombare.'},
+  {id:'pulley-basso',n:'Pulley basso',c:'Schiena',m:'Tirata orizzontale',f:'Seduto, piedi sulla pedana, schiena dritta. Tira la maniglia verso l\'addome con i gomiti vicini al corpo.',mu:'Dorsale, romboidi, bicipiti',k:'Schiena dritta, niente slancio col busto.'},
+  {id:'rematore-bil',n:'Rematore bilanciere',c:'Schiena',m:'Tirata orizzontale',f:'Busto inclinato in avanti a circa 45 gradi, schiena dritta, ginocchia morbide. Tira il bilanciere verso l\'ombelico e scendi.',mu:'Dorsale, romboidi, lombari',k:'Busto fermo: se oscilla, il peso è troppo.'},
+  {id:'rematore-man',n:'Rematore manubrio',c:'Schiena',m:'Tirata orizzontale',f:'Ginocchio e mano dello stesso lato sulla panca, schiena parallela al pavimento. Tira il gomito verso l\'anca, non verso la spalla, e a fine movimento stringi la scapola.',mu:'Dorsale, romboidi',k:'Un braccio alla volta, il busto non ruota.'},
+  {id:'face-pull',n:'Face pull',c:'Schiena',m:'Tirata orizzontale',f:'Cavo all\'altezza del viso con la corda. Tira verso la fronte aprendo le mani e portando i gomiti in alto.',mu:'Deltoide posteriore, trapezio medio',k:'Peso leggero: serve alla salute delle spalle.'},
+  {id:'stacco-terra',n:'Stacco da terra',c:'Schiena',m:'Catena posteriore',f:'Bilanciere sopra i piedi, schiena dritta, fianchi indietro. Spingi coi piedi e alzati portando il bilanciere lungo le gambe.',mu:'Lombari, glutei, femorali, trapezio',k:'Tecnica prima del carico. In campionato meglio lo stacco rumeno: stanca meno.'},
+  {id:'hyperextension',n:'Hyperextension',c:'Schiena',m:'Catena posteriore',f:'Bacino sul cuscino, piedi bloccati. Scendi col busto e risali fino ad allinearlo alle gambe, senza iperestendere.',mu:'Lombari, glutei',k:'A corpo libero o con un disco al petto.'},
+  // ---- spalle
+  {id:'shoulder-press-macchina',n:'Shoulder press alla macchina',c:'Spalle',m:'Spinta verticale',f:'Seduto con la schiena appoggiata, maniglie all\'altezza delle orecchie. Spingi in alto senza bloccare i gomiti e senza staccare la schiena.',mu:'Deltoidi, tricipiti',k:'Se devi inarcare la schiena, il peso è troppo.'},
+  {id:'shoulder-press-man',n:'Spinte con manubri',c:'Spalle',m:'Spinta verticale',f:'Da seduto con schienale quasi verticale, manubri all\'altezza delle orecchie e gomiti leggermente in avanti, non aperti a croce. Spingi in alto senza inarcare la schiena.',mu:'Deltoidi, tricipiti',k:'Se devi inarcare la schiena, il peso è troppo.'},
+  {id:'alzate-laterali',n:'Alzate laterali',c:'Spalle',m:'Isolamento',f:'In piedi, manubri lungo i fianchi. Sali fino all\'altezza delle spalle con i gomiti morbidi, senza slanci, e scendi lento.',mu:'Deltoide laterale',k:'Peso leggero e tante ripetizioni pulite.'},
+  // ---- braccia
+  {id:'curl-man',n:'Curl con manubri',c:'Braccia',m:'Isolamento',f:'In piedi, gomiti fermi vicino ai fianchi. Porta i manubri verso le spalle e scendi lento.',mu:'Bicipiti',k:'Niente slancio con la schiena.'},
+  {id:'push-down',n:'Push down ai cavi',c:'Braccia',m:'Isolamento',f:'In piedi davanti al cavo alto, gomiti attaccati ai fianchi. Spingi in basso fino a braccia tese: si muove solo l\'avambraccio.',mu:'Tricipiti',k:'Gomiti fermi: se si alzano, il peso è troppo.'},
+  // ---- addome
+  {id:'crunch',n:'Crunch',c:'Addome',m:'Flessione',f:'A terra, ginocchia piegate, mani dietro la testa. Solleva le spalle arrotondando la schiena e torna giù.',mu:'Retto dell\'addome',k:'Solleva solo le spalle.'},
+  {id:'crunch-cavi',n:'Crunch ai cavi',c:'Addome',m:'Flessione',f:'In ginocchio sotto il cavo, corda ai lati della testa. Arrotola il busto verso le ginocchia: il movimento parte dalle costole verso il bacino.',mu:'Retto dell\'addome',k:'Carico progressivo come gli altri esercizi.'},
+  {id:'leg-raise',n:'Leg raise alla sbarra',c:'Addome',m:'Flessione',f:'Appeso alla sbarra senza dondolare. Solleva le gambe fino all\'orizzontale e scendi lento.',mu:'Retto, flessori dell\'anca',k:'Versione facile a ginocchia piegate.'},
+  {id:'reverse-crunch',n:'Reverse crunch',c:'Addome',m:'Flessione',f:'Sdraiato, ginocchia piegate a 90 gradi in aria. Porta le ginocchia verso il petto staccando il bacino da terra.',mu:'Retto, parte bassa',k:'È il bacino che sale, non le gambe che dondolano.'},
+  {id:'hollow-hold',n:'Hollow hold',c:'Addome',m:'Anti-estensione',f:'Sdraiato, braccia e gambe sollevate, lombare sempre a contatto con il pavimento. Tieni la posizione.',mu:'Core completo',k:'Se la schiena si stacca, piega le ginocchia.'},
+  {id:'plank',n:'Plank',c:'Addome',m:'Anti-estensione',f:'Avambracci a terra, gomiti sotto le spalle, corpo dritto. Bacino leggermente retroverso, glutei e addome contratti.',mu:'Core completo',k:'Se la schiena si inarca, fermati.'},
+  {id:'ab-wheel',n:'Ab wheel',c:'Addome',m:'Anti-estensione',f:'In ginocchio con la ruota sotto le spalle. Rotola in avanti allungando il corpo e torna indietro con l\'addome.',mu:'Core completo',k:'Parti con un\'escursione corta.'},
+  {id:'pallof',n:'Pallof press',c:'Addome',m:'Anti-rotazione',f:'Di fianco al cavo, maniglia al petto. Spingi le mani avanti a braccia tese, tieni 2 secondi e torna.',mu:'Obliqui, core',k:'Resisti alla torsione: il busto non deve girare.'},
+  {id:'plank-laterale',n:'Plank laterale',c:'Addome',m:'Obliqui',f:'Su un avambraccio e il lato dei piedi, corpo dritto. Tieni il bacino alto per il tempo previsto.',mu:'Obliqui',k:'Bacino alto e allineato.'},
+  {id:'russian-twist',n:'Russian twist',c:'Addome',m:'Obliqui',f:'Seduto, busto inclinato indietro, piedi sollevati. Ruota il busto portando il peso da un lato all\'altro.',mu:'Obliqui',k:'Con un disco o la palla medica.'},
+  // ---- gambe
+  {id:'squat-bil',n:'Squat bilanciere',c:'Gambe',m:'Dominanza di ginocchio',f:'Bilanciere sulle spalle, piedi alla larghezza delle spalle. Scendi coi fianchi indietro fino alle cosce parallele e risali.',mu:'Quadricipiti, glutei',k:'Esercizio base, profondità controllata.'},
+  {id:'leg-press',n:'Leg press',c:'Gambe',m:'Dominanza di ginocchio',f:'Schiena e bacino appoggiati, piedi al centro della pedana. Piega le ginocchia verso il petto e spingi.',mu:'Quadricipiti, glutei',k:'Non staccare il bacino dallo schienale.'},
+  {id:'hack-squat',n:'Hack squat',c:'Gambe',m:'Dominanza di ginocchio',f:'Schiena sul cuscino, piedi un po\' avanti. Scendi fino a circa 90 gradi di ginocchio e spingi su.',mu:'Quadricipiti',k:'Guidato, schiena protetta.'},
+  {id:'affondi',n:'Affondi',c:'Gambe',m:'Dominanza di ginocchio',f:'Fai un passo avanti e scendi finché il ginocchio dietro sfiora terra. Spingi sul piede davanti per tornare.',mu:'Quadricipiti, glutei',k:'Camminati o sul posto.'},
+  {id:'bulgaro',n:'Bulgarian split squat',c:'Gambe',m:'Dominanza di ginocchio',f:'Piede posteriore appoggiato su una panca, gamba davanti a un passo di distanza. Scendi in verticale finché la coscia davanti è parallela al pavimento, il ginocchio resta sopra il piede.',mu:'Quadricipiti, glutei',k:'Parti senza pesi finché l\'equilibrio non è stabile.'},
+  {id:'stacco-rumeno',n:'Stacco rumeno',c:'Gambe',m:'Dominanza d\'anca',f:'In piedi col bilanciere o i manubri davanti alle cosce, ginocchia leggermente piegate e ferme. Spingi il bacino indietro come per chiudere la portiera dell\'auto con il sedere: il peso scende lungo le gambe fino a poco sotto il ginocchio, poi risali spingendo il bacino avanti.',mu:'Femorali, glutei',k:'È una cerniera dell\'anca, non un piegamento delle ginocchia. Schiena sempre dritta.'},
+  {id:'hip-thrust',n:'Hip thrust',c:'Gambe',m:'Dominanza d\'anca',f:'Parte alta della schiena sulla panca, bilanciere sui fianchi. Spingi il bacino in alto fino ad allineare busto e cosce, mento verso il petto.',mu:'Glutei',k:'Pausa di 1 secondo in alto.'},
+  {id:'leg-extension',n:'Leg extension',c:'Gambe',m:'Isolamento',f:'Seduto, cuscino sopra le caviglie. Distendi le gambe fino a tese e torna giù lento.',mu:'Quadricipiti',k:'Buona per chiudere.'},
+  {id:'leg-curl-sdraiato',n:'Leg curl sdraiato',c:'Gambe',m:'Isolamento',f:'A pancia in giù, cuscino dietro le caviglie. Porta i talloni verso i glutei e distendi lento.',mu:'Femorali',k:'Movimento lento in discesa.'},
+  {id:'leg-curl-seduto',n:'Leg curl seduto',c:'Gambe',m:'Isolamento',f:'Seduto, gambe tese, cuscino dietro le caviglie. Piega le ginocchia spingendo in basso e torna.',mu:'Femorali',k:'Alternativa al curl sdraiato.'},
+  {id:'nordic',n:'Nordic curl',c:'Gambe',m:'Isolamento',f:'In ginocchio con le caviglie bloccate, scendi in avanti il più lentamente possibile e risali aiutandoti con le mani.',mu:'Femorali',k:'È l\'esercizio con più evidenza per prevenire gli infortuni agli ischiocrurali, il classico del futsal. Se non hai dove bloccare le caviglie, leg curl.'},
+  {id:'abductor',n:'Abductor machine',c:'Gambe',m:'Isolamento',f:'Seduto, cuscini all\'esterno delle ginocchia. Apri le gambe e richiudi lentamente.',mu:'Gluteo medio',k:'Busto leggermente in avanti.'},
+  {id:'adductor',n:'Adductor machine',c:'Gambe',m:'Isolamento',f:'Seduto, cuscini all\'interno delle ginocchia, gambe aperte. Chiudi le gambe e riapri lento.',mu:'Adduttori',k:'Escursione comoda: gli adduttori nel futsal si stirano facilmente.'},
+  {id:'calf-piedi',n:'Calf raise in piedi',c:'Gambe',m:'Polpacci',f:'Punte su un rialzo, talloni liberi. Scendi coi talloni in basso e sali sulle punte.',mu:'Gastrocnemio',k:'Pausa in allungamento.'},
+  {id:'calf-seduto',n:'Calf raise seduto',c:'Gambe',m:'Polpacci',f:'Seduto, cuscino sulle ginocchia, punte sul rialzo. Solleva i talloni al massimo e scendi.',mu:'Soleo',k:'Ginocchia piegate a 90 gradi.'},
+];
+const EX=Object.fromEntries(LIB.map(e=>[e.id,e]));
+// nome di un esercizio a partire dalla chiave dei carichi: libreria o esercizi aggiunti da te
+const nomeEx=(st,k)=>{
+  const m=String(k).match(/^mio-(\d+)$/);
+  if(m) return ((st.mieiEx||[])[+m[1]]||{}).n||null;
+  return EX[k]?EX[k].n:null;
+};
+
 /* ============ SCHEDE PALESTRA ============ */
+// In campionato: A martedì (gambe a 48 ore dalla partita), B venerdì (il giorno dopo la partita, gambe ferme), C domenica.
+// Obiettivo ricomposizione: pochi esercizi fatti bene, carichi che salgono. A 12 ripetizioni pulite su tutte le serie, aumenti.
 const SCHEDE={
-  pesi_a:{n:'Palestra A',tag:'unico giorno con gambe pesanti',ex:[
-    {n:'Stacco rumeno con manubri',s:'3 × 8-10',d:'Manubri davanti alle cosce, ginocchia leggermente piegate e ferme. Spingi il bacino indietro come per chiudere la portiera dell\'auto con il sedere, i manubri scendono lungo le gambe restando a contatto. Schiena dritta. Scendi finché senti tirare dietro le cosce, di solito poco sotto il ginocchio, poi risali spingendo il bacino avanti. È una cerniera dell\'anca, non un piegamento delle ginocchia.'},
-    {n:'Split squat bulgaro o pressa',s:'3 × 8 per gamba',d:'Piede posteriore appoggiato su una panca, gamba davanti a un passo di distanza. Scendi in verticale finché la coscia davanti è parallela al pavimento, il ginocchio resta sopra il piede. Parti senza pesi finché l\'equilibrio non è stabile.'},
-    {n:'Panca piana con manubri o chest press',s:'3 × 8-12',d:'Gomiti a circa 45 gradi dal busto, non aperti a croce. Scendi controllato fino a sfiorare il petto, spingi senza bloccare i gomiti in alto.'},
-    {n:'Trazioni o lat machine',s:'3 × 8-12',d:'Tira portando i gomiti verso le costole e finisci stringendo le scapole in basso. Se usi il lat, non tirare dietro la nuca: la sbarra va davanti al viso.'},
-    {n:'Plank',s:'3 × 40 secondi',d:'Gomiti sotto le spalle, bacino leggermente retroverso, glutei e addome contratti. Se la schiena si inarca, fermati.'},
+  pesi_a:{n:'Palestra A',tag:'martedì · gambe e spinta',ex:[
+    {id:'bulgaro',s:'3 × 8 per gamba'},
+    {id:'stacco-rumeno',s:'3 × 8-10'},
+    {id:'chest-press',s:'3 × 8-12'},
+    {id:'lat-avanti',s:'3 × 8-12'},
+    {id:'nordic',s:'2 × 6-8'},
+    {id:'calf-piedi',s:'2 × 12-15'},
+    {id:'plank',s:'3 × 40 secondi'},
   ]},
-  pesi_b:{n:'Palestra B',tag:'solo parte alta',ex:[
-    {n:'Spinte sopra la testa o shoulder press',s:'3 × 8-12',d:'Da seduto con schienale quasi verticale, manubri all\'altezza delle orecchie e gomiti leggermente in avanti, non aperti a croce. Spingi in alto senza inarcare la schiena: se devi inarcare, il peso è troppo.'},
-    {n:'Rematore con manubrio o pulley',s:'3 × 10 per lato',d:'Ginocchio e mano dello stesso lato sulla panca, schiena parallela al pavimento. Tira il gomito verso l\'anca, non verso la spalla, e a fine movimento stringi la scapola. Il busto non ruota.'},
-    {n:'Croci ai cavi o pectoral machine',s:'3 × 12',d:'Gomiti leggermente piegati e fissi per tutto il movimento. Chiudi lentamente immaginando di abbracciare qualcosa.'},
-    {n:'Curl con manubri',s:'2 × 12',d:'Gomiti fermi vicino ai fianchi, niente slancio con la schiena.'},
-    {n:'Push down ai cavi',s:'2 × 12',d:'Gomiti attaccati ai fianchi, si muove solo l\'avambraccio.'},
-    {n:'Nordic curl o leg curl',s:'2 × 6-8',d:'Se hai la macchina per il leg curl usa quella. In alternativa, in ginocchio con le caviglie bloccate, scendi in avanti il più lentamente possibile e risali aiutandoti con le mani. È l\'esercizio con più evidenza per prevenire gli infortuni agli ischiocrurali, il classico del futsal.'},
-    {n:'Hollow hold o crunch ai cavi',s:'3 × 12',d:'Lombare sempre a contatto con il pavimento, il movimento parte dalle costole verso il bacino.'},
+  pesi_b:{n:'Palestra B',tag:'venerdì · solo parte alta',ex:[
+    {id:'shoulder-press-macchina',s:'3 × 8-12'},
+    {id:'pulley-basso',s:'3 × 8-12'},
+    {id:'pectoral-machine',s:'3 × 10-12'},
+    {id:'face-pull',s:'3 × 15'},
+    {id:'curl-man',s:'3 × 10-12'},
+    {id:'push-down',s:'3 × 10-12'},
+    {id:'crunch-cavi',s:'3 × 12'},
   ]},
-  pesi_c:{n:'Palestra C',tag:'facoltativa, leggera',ex:[
-    {n:'Panca inclinata o chest press inclinata',s:'3 × 10',d:'Inclinazione di circa 30 gradi. Stessa tecnica della panca piana.'},
-    {n:'Lat machine presa stretta',s:'3 × 10',d:'Presa neutra, tira verso lo sterno stringendo le scapole.'},
-    {n:'Hip thrust',s:'3 × 12',d:'Schiena appoggiata alla panca sotto le scapole, spingi il bacino verso l\'alto contraendo i glutei, mento verso il petto. Carico moderato: qui non serve strafare.'},
-    {n:'Alzate laterali',s:'3 × 15',d:'Peso leggero, sali fino all\'altezza delle spalle senza slanci.'},
-    {n:'Core a scelta',s:'3 serie',d:'Plank laterale, dead bug o pallof press.'},
+  pesi_c:{n:'Palestra C',tag:'domenica · facoltativa, gambe leggere',ex:[
+    {id:'chest-press-incl',s:'3 × 8-12'},
+    {id:'lat-stretta',s:'3 × 8-12'},
+    {id:'rematore-man',s:'3 × 10 per lato'},
+    {id:'hip-thrust',s:'3 × 10-12',x:'Carico moderato: domani c\'è il campo.'},
+    {id:'alzate-laterali',s:'3 × 12-15'},
+    {id:'pallof',s:'3 × 10 per lato'},
   ]},
 };
+
+// i carichi registrati prima della libreria erano salvati come 'scheda-posizione':
+// li sposto sull'esercizio corrispondente, così lo storico non si perde
+const VECCHIE_CHIAVI={
+  'pesi_a-0':'stacco-rumeno','pesi_a-1':'bulgaro','pesi_a-2':'chest-press','pesi_a-3':'lat-avanti','pesi_a-4':'plank',
+  'pesi_b-0':'shoulder-press-macchina','pesi_b-1':'pulley-basso','pesi_b-2':'pectoral-machine','pesi_b-3':'curl-man',
+  'pesi_b-4':'push-down','pesi_b-5':'nordic','pesi_b-6':'crunch-cavi',
+  'pesi_c-0':'chest-press-incl','pesi_c-1':'lat-stretta','pesi_c-2':'hip-thrust','pesi_c-3':'alzate-laterali','pesi_c-4':'plank-laterale',
+};
+function migra(s){
+  const c={...(s.carichi||{})}, n={...(s.noteEx||{})};
+  let cambiato=false;
+  Object.entries(VECCHIE_CHIAVI).forEach(([v,id])=>{
+    if(c[v]){c[id]=[...(c[id]||[]),...c[v]]; delete c[v]; cambiato=true;}
+    if(n[v]){n[id]=n[id]?n[id]+' · '+n[v]:n[v]; delete n[v]; cambiato=true;}
+  });
+  return cambiato?{...s,carichi:c,noteEx:n}:s;
+}
 
 /* ===================== STATO ===================== */
 // date sempre in ora locale: toISOString userebbe il fuso di Greenwich e in Italia sposterebbe tutto di un giorno
@@ -584,7 +694,7 @@ const DEFAULT={
   registro:{}, pesi:[], carichi:{}, noteEx:{}, noteSess:{}, mieiEx:[], grammi:false, override:{},
 };
 const KEY='piano-v2';
-const carica=()=>{try{const s=localStorage.getItem(KEY);return s?{...DEFAULT,...JSON.parse(s)}:DEFAULT;}catch(e){return DEFAULT;}};
+const carica=()=>{try{const s=localStorage.getItem(KEY);return s?migra({...DEFAULT,...JSON.parse(s)}):DEFAULT;}catch(e){return DEFAULT;}};
 
 /* ===================== CALCOLI ===================== */
 const bmr=p=>Math.round(10*p.peso+6.25*p.altezza-5*p.eta+(p.sesso==='m'?5:-161));
@@ -594,8 +704,7 @@ const kcalAtt=(a,peso)=>Math.round(Math.max(0,(ATT[a.t]?ATT[a.t].met:0)-1)*3.5*p
 function attivitaDi(st,data){
   if(st.override[data]) return st.override[data];
   const d=new Date(data+'T12:00:00'), idx=(d.getDay()+6)%7, f=faseDi(d);
-  const base = f==='off' ? SETT_OFF : f==='prep' ? SETT_PREP : f==='camp' ? SETT_CAMP
-             : SETT_PREP.map((x,i)=>i===2?[]:x);
+  const base = f==='off' ? SETT_OFF : f==='prep' ? SETT_PREP : f==='camp' ? SETT_CAMP : SETT_TRANS;
   return JSON.parse(JSON.stringify(base[idx]));
 }
 function giornoCalc(st,data){
@@ -825,7 +934,7 @@ function App(){
       if(d.exists){
         const r=d.data();
         const locale=(()=>{try{return JSON.parse(localStorage.getItem(KEY)||'{}').agg||0;}catch(e){return 0;}})();
-        if((r.agg||0)>=locale && r.dati) setSt({...DEFAULT,...JSON.parse(r.dati)});
+        if((r.agg||0)>=locale && r.dati) setSt(migra({...DEFAULT,...JSON.parse(r.dati)}));
       }
       setSync({stato:'ok',quando:new Date()});
     }).catch(e=>setSync({stato:'errore: '+e.code,quando:null}));
@@ -843,6 +952,31 @@ function App(){
     return ()=>clearTimeout(t);
   },[st]);
   const up=p=>setSt(s=>({...s,...p}));
+  const [catLib,setCatLib]=useState('Petto');
+  // funzione e non componente: se fosse un componente dichiarato qui dentro, a ogni tasto
+  // React lo rimonterebbe e i campi del pannello perderebbero il fuoco.
+  // una riga esercizio con descrizione, ultimo carico e pannello per segnare: la usano schede e libreria
+  const rigaEx=({id,serie,extra})=>{
+    const e=EX[id]; if(!e) return null;
+    const log=[...(st.carichi[id]||[])].sort((a,b)=>a.d.localeCompare(b.d));
+    const ult=log[log.length-1];
+    const aperto=exApri===id;
+    return<div className="ex" key={id}>
+      <div className="nm">{e.n}{serie&&<span className="sr">{serie}</span>}
+        <div className="spacer"/>
+        {ult&&<span className="sr">ultimo: {(ult.set||1)}×{ult.reps}{ult.kg?' · '+ult.kg+' kg':''}</span>}
+        <button className="btn ghost small" onClick={()=>{
+          if(aperto){setExApri(null);return;}
+          setExApri(id); setExForm({d:oggi,set:'',kg:'',reps:'',mod:null});
+        }}>{aperto?'Chiudi':'Segna'}</button>
+      </div>
+      <div className="de">{e.f}{extra?' '+extra:''}</div>
+      <div className="sr" style={{marginTop:4}}><b>Muscoli:</b> {e.mu} · <b>Consiglio:</b> {e.k}</div>
+      {!aperto&&(st.noteEx||{})[id]&&<div className="sr" style={{marginTop:6,color:'var(--oliva)'}}>Nota: {st.noteEx[id]}</div>}
+      {!aperto&&log.length>1&&<div className="sr" style={{marginTop:6}}>Progressione: {log.slice(-6).map(x=>(x.kg?x.kg+' kg':'corpo libero')+'×'+x.reps).join(' · ')}</div>}
+      {aperto&&<PannelloEx id={id} st={st} up={up} oggi={oggi} form={exForm} setForm={setExForm}/>}
+    </div>;
+  };
   const upProf=(k,v)=>setSt(s=>({...s,profilo:{...s.profilo,[k]:v}}));
   const oggi=OGGI();
   const fase=faseDi(new Date());
@@ -900,7 +1034,7 @@ function App(){
           :sync.stato==='collego'?'Collegamento…':sync.stato}</span><br/>
         {fase==='off'?'Solo palestra · la preparazione parte il 7 settembre':
          fase==='prep'?'Campo lunedì, mercoledì, giovedì · fino al 1 ottobre':
-         fase==='camp'?'Allenamento lunedì · partita giovedì':'Transizione verso il campionato'}</div>
+         fase==='camp'?'Allenamento lunedì · partita giovedì':'Campo lunedì e giovedì · campionato dal 15 ottobre'}</div>
     </div>
     <nav>{[['oggi','Oggi'],['settimana','Settimana'],['pasti','Pasti'],['spesa','Spesa'],['calendario','Calendario'],['palestra','Palestra'],['peso','Peso'],['report','Report'],['guida','Guida'],['imp','Impostazioni']].map(([k,l])=>
       <button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{l}</button>)}</nav>
@@ -1436,37 +1570,38 @@ function App(){
         <h2>Palestra</h2>
         <div className="sub">Due o tre sedute a rotazione: se ne salti una, hai comunque allenato tutto. Serie da fermare quando ne avresti ancora due in canna; a 12 ripetizioni pulite su tutte le serie, la volta dopo aumenti il peso e riparti da 8.</div>
         {fase==='off'&&<div className="ok">Fuori stagione puoi fare le tre sedute complete, gambe incluse: non c'è il campo a togliere recupero. Dal 7 settembre si passa alla sola seduta B.</div>}
+        {(fase==='trans'||fase==='camp')&&<div className="ok">Finita la preparazione, tornano le gambe. Seduta <b>A</b> il martedì, <b>B</b> il venerdì{fase==='camp'?<>, <b>C</b> la domenica se hai energie</>:<>; dal 15 ottobre si aggiunge la <b>C</b> la domenica</>}. Le prime due A falle con carichi bassi: split squat e stacco rumeno dopo settimane senza gambe lasciano indolenziti per giorni, e il giovedì c'è il campo.</div>}
         {fase==='prep'&&<div className="warn">Fino al 1 ottobre fai solo la <b>seduta B</b>, due volte a settimana. Con tre allenamenti sul campo le gambe sono già oltre il limite: aggiungere squat e affondi ora significa arrivare a metà ottobre stanco invece che pronto.</div>}
         {!!conflitti.length&&<div className="alert" style={{marginTop:10}}>Hai gambe pesanti a meno di 48 ore da una partita. Sposta la seduta A al martedì: è l'unica finestra pulita della settimana.</div>}
         <div className="row" style={{gap:6,marginTop:12}}>
-          {[['allenamenti','Allenamenti'],['schede','Schede'],['progressi','Progressi']].map(([k,n])=>
+          {[['allenamenti','Allenamenti'],['schede','Schede'],['libreria','Libreria'],['progressi','Progressi']].map(([k,n])=>
             <button key={k} className={'btn '+(vistaPal===k?'':'ghost')+' small'} onClick={()=>setVistaPal(k)}>{n}</button>)}
         </div>
       </div>
       {vistaPal==='schede'&&Object.entries(SCHEDE).map(([k,s])=><div className="card" key={k}>
         <div className="row"><h3 style={{marginBottom:0}}>{s.n}</h3><span className="tag">{s.tag}</span></div>
         <div className="hr" style={{margin:'12px 0'}}/>
-        {s.ex.map((e,i)=>{
-          const id=k+'-'+i;
-          const log=[...(st.carichi[id]||[])].sort((a,b)=>a.d.localeCompare(b.d));
-          const ult=log[log.length-1];
-          const aperto=exApri===id;
-          return<div className="ex" key={i}>
-            <div className="nm">{e.n}<span className="sr">{e.s}</span>
-              <div className="spacer"/>
-              {ult&&<span className="sr">ultimo: {(ult.set||1)}×{ult.reps}{ult.kg?' · '+ult.kg+' kg':''}</span>}
-              <button className="btn ghost small" onClick={()=>{
-                if(aperto){setExApri(null);return;}
-                setExApri(id); setExForm({d:oggi,set:'',kg:'',reps:'',mod:null});
-              }}>{aperto?'Chiudi':'Segna'}</button>
-            </div>
-            <div className="de">{e.d}</div>
-            {!aperto&&(st.noteEx||{})[id]&&<div className="sr" style={{marginTop:6,color:'var(--oliva)'}}>Nota: {st.noteEx[id]}</div>}
-            {!aperto&&log.length>1&&<div className="sr" style={{marginTop:6}}>Progressione: {log.slice(-6).map(x=>x.kg+' kg×'+x.reps).join(' · ')}</div>}
-            {aperto&&<PannelloEx id={id} st={st} up={up} oggi={oggi} form={exForm} setForm={setExForm}/>}
-          </div>;
-        })}
+        {s.ex.map(x=>rigaEx({id:x.id,serie:x.s,extra:x.x}))}
       </div>)}
+      {vistaPal==='libreria'&&<div className="card">
+        <div className="row"><h3 style={{marginBottom:0}}>Libreria esercizi</h3><span className="tag">{LIB.length} esercizi</span></div>
+        <div className="sub" style={{marginTop:8}}>Tutti gli esercizi, divisi per gruppo muscolare. Le versioni con i manubri e quelle alla macchina sono voci separate, così i carichi restano confrontabili. Puoi segnare un carico da qui anche se l'esercizio non è in scheda.</div>
+        <div className="row" style={{gap:6,flexWrap:'wrap',marginTop:10}}>
+          {CATEGORIE.map(c=><button key={c} className={'btn '+(catLib===c?'':'ghost')+' small'} onClick={()=>setCatLib(c)}>{c}</button>)}
+        </div>
+        <div className="hr" style={{margin:'12px 0'}}/>
+        {(()=>{
+          let ultimoM=null;
+          return LIB.filter(e=>e.c===catLib).map(e=>{
+            const titolo=e.m!==ultimoM; ultimoM=e.m;
+            const inScheda=Object.values(SCHEDE).filter(sc=>sc.ex.some(x=>x.id===e.id)).map(sc=>sc.n.replace('Palestra ',''));
+            return<React.Fragment key={e.id}>
+              {titolo&&<div className="eyebrow" style={{marginTop:10,marginBottom:4,color:'var(--mattone)'}}>{e.m}</div>}
+              {rigaEx({id:e.id,serie:inScheda.length?'in scheda '+inScheda.join(', '):''})}
+            </React.Fragment>;
+          });
+        })()}
+      </div>}
       {vistaPal==='schede'&&(()=>{
         // esercizi che aggiungi tu: stessa struttura delle schede, così entrano nel report come gli altri
         const mie=st.mieiEx||[];
@@ -1517,7 +1652,7 @@ function App(){
         // gli allenamenti non sono un dato nuovo: sono le righe di carico raggruppate per data.
         // così tutto quello che hai già segnato compare qui senza doverlo rifare.
         const tuttiEx=[
-          ...Object.entries(SCHEDE).flatMap(([k,sc])=>sc.ex.map((e,i)=>({id:k+'-'+i,n:e.n,g:sc.n}))),
+          ...LIB.map(e=>({id:e.id,n:e.n,g:e.c})),
           ...(st.mieiEx||[]).map((e,i)=>({id:'mio-'+i,n:e.n,g:'I tuoi esercizi'})),
         ];
         const nomeDi=id=>(tuttiEx.find(x=>x.id===id)||{}).n||null;
@@ -1538,6 +1673,14 @@ function App(){
           const pre=st.carichi[aggEx.ex]||[];
           up({carichi:{...st.carichi,[aggEx.ex]:[...pre,{d:data,set:(isNaN(set)||set<=0)?1:set,kg,reps}]}});
           setAggEx({...aggEx,set:'',reps:'',kg:''});   // tengo l'esercizio: spesso segni più serie di fila
+        };
+        const sposta=(v,nuovo)=>{
+          if(!nuovo||nuovo===v.id) return;
+          const voce=(st.carichi[v.id]||[])[v.j]; if(!voce) return;
+          const resto=(st.carichi[v.id]||[]).filter((_,k)=>k!==v.j);
+          const c={...st.carichi}; if(resto.length) c[v.id]=resto; else delete c[v.id];
+          c[nuovo]=[...(c[nuovo]||[]),voce];
+          up({carichi:c});
         };
         const elimina=v=>{
           const resto=(st.carichi[v.id]||[]).filter((_,k)=>k!==v.j);
@@ -1565,7 +1708,7 @@ function App(){
               <input type="date" value={sessApri||oggi} onChange={e=>setSessApri(e.target.value)} style={{maxWidth:150}}/>
               <select value={aggEx.ex} onChange={e=>setAggEx({...aggEx,ex:e.target.value})} style={{maxWidth:260}}>
                 <option value="">Scegli l'esercizio…</option>
-                {['Palestra A','Palestra B','Palestra C','I tuoi esercizi'].map(gr=>{
+                {[...CATEGORIE,'I tuoi esercizi'].map(gr=>{
                   const dentro=tuttiEx.filter(x=>x.g===gr);
                   return dentro.length?<optgroup key={gr} label={gr}>
                     {dentro.map(x=><option key={x.id} value={x.id}>{x.n}</option>)}
@@ -1624,8 +1767,14 @@ function App(){
               </div>
               {aperto
                 ? <div style={{marginTop:10}}>
-                    {righe.map((x,k)=><div className="row" key={k} style={{padding:'5px 0',borderBottom:'1px solid var(--line)'}}>
-                      <span style={{fontSize:13}}>{x.n}</span>
+                    {righe.map((x,k)=><div className="row" key={k} style={{padding:'5px 0',borderBottom:'1px solid var(--line)',gap:6}}>
+                      <select className="noprint" value={x.id} title="Hai sbagliato attrezzo? Cambia esercizio qui" onChange={e=>sposta(x,e.target.value)} style={{maxWidth:240,fontSize:13}}>
+                        {[...CATEGORIE,'I tuoi esercizi'].map(gr=>{
+                          const dentro=tuttiEx.filter(y=>y.g===gr);
+                          return dentro.length?<optgroup key={gr} label={gr}>{dentro.map(y=><option key={y.id} value={y.id}>{y.n}</option>)}</optgroup>:null;
+                        })}
+                      </select>
+                      <span className="soloprint" style={{fontSize:13}}>{x.n}</span>
                       <div className="spacer"/>
                       <b style={{fontSize:13}}>{(x.set||1)} × {x.reps}{x.kg?' · '+String(x.kg).replace('.',',')+' kg':''}</b>
                       <button className="btn ghost small noprint" onClick={()=>elimina(x)}>×</button>
@@ -1646,18 +1795,12 @@ function App(){
       })()}
 
       {vistaPal==='progressi'&&(()=>{
-        // storico dei carichi: le voci sono salvate come carichi['scheda-indice'] = [{d,kg,reps}]
+        // storico dei carichi: le voci sono salvate come carichi[id esercizio] = [{d,set,kg,reps}]
         const righe=[];
         Object.keys(st.carichi||{}).forEach(k=>{
           const log=st.carichi[k]||[]; if(!log.length) return;
-          const [sk,si]=k.split('-');
-          if(sk==='mio'){
-            const e=(st.mieiEx||[])[+si]; if(!e) return;
-            righe.push({k, nome:e.n, scheda:'I tuoi esercizi', log:[...log].sort((a,b)=>a.d.localeCompare(b.d))});
-            return;
-          }
-          const sch=SCHEDE[sk]; if(!sch||!sch.ex[+si]) return;
-          righe.push({k, nome:sch.ex[+si].n, scheda:sch.n, log:[...log].sort((a,b)=>a.d.localeCompare(b.d))});
+          const nome=nomeEx(st,k); if(!nome) return;
+          righe.push({k, nome, scheda:EX[k]?EX[k].c:'I tuoi esercizi', log:[...log].sort((a,b)=>a.d.localeCompare(b.d))});
         });
         if(!righe.length) return <div className="card">
           <h3>Come stai andando</h3>
@@ -1869,14 +2012,9 @@ function App(){
 
         <h3 style={{marginBottom:10,marginTop:18}}>Palestra</h3>
         {(()=>{
-          const nomeEx=k=>{
-            const [sk,si]=k.split('-');
-            if(sk==='mio') return ((st.mieiEx||[])[+si]||{}).n||null;
-            const s2=SCHEDE[sk]; return s2&&s2.ex[+si]?s2.ex[+si].n:null;
-          };
           const dentro=[];
           Object.keys(st.carichi||{}).forEach(k=>{
-            const n=nomeEx(k); if(!n) return;
+            const n=nomeEx(st,k); if(!n) return;
             (st.carichi[k]||[]).forEach(x=>{
               if(x.d>=giorni[0].data&&x.d<=giorni[6].data) dentro.push({n,...x});
             });
@@ -1917,7 +2055,7 @@ function App(){
       <h3 style={{marginTop:14}}>Quando sfori</h3>
       <p className="note">Lo scostamento non si recupera il giorno dopo tutto insieme. Si spalma sui giorni che restano nella settimana, al massimo 150 kcal al giorno, e mai sotto il metabolismo basale. Se è troppo grande per stare in quei limiti, resta lì e la settimana si chiude così: un pranzo abbondante costa qualche giorno di ritardo, non merita di innescare un digiuno.</p>
       <h3 style={{marginTop:14}}>La palestra sotto il futsal</h3>
-      <p className="note">Il campo è già un carico enorme per le gambe ad alta velocità. In palestra le gambe si allenano per la forza e per non farsi male, non per il volume. Il lavoro pesante di gambe sta ad almeno 48 ore dalla partita, quindi in campionato è il martedì. Stacco rumeno e nordic curl sono in due sedute su tre di proposito: sono la cosa con più evidenza per prevenire gli infortuni agli ischiocrurali, che è l'infortunio tipico di questo sport.</p>
+      <p className="note">Il campo è già un carico enorme per le gambe ad alta velocità. In palestra le gambe si allenano per la forza e per non farsi male, non per il volume. Il lavoro pesante di gambe sta ad almeno 48 ore dalla partita, quindi in campionato è il martedì, nella seduta A. Stacco rumeno e nordic curl ci sono di proposito: sono la cosa con più evidenza per prevenire gli infortuni agli ischiocrurali, che è l'infortunio tipico di questo sport. Il venerdì, il giorno dopo la partita, le gambe restano ferme; la domenica solo hip thrust leggero.</p>
       <div className="hr"/>
       <div className="note">Le stime valgono per una persona sana e si basano su formule di popolazione. Se hai condizioni cliniche o vuoi qualcosa cucito addosso, la persona giusta resta una dietista — e ora avresti dati concreti da portarle.</div>
     </div>
@@ -1956,7 +2094,7 @@ function App(){
         <button className="btn ghost small" onClick={()=>{const b=new Blob([JSON.stringify(st,null,2)],{type:'application/json'});
           const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='piano-'+oggi+'.json';a.click();}}>Esporta</button>
         <button className="btn ghost small" onClick={()=>{const i=document.createElement('input');i.type='file';i.accept='.json';
-          i.onchange=ev=>{const r=new FileReader();r.onload=()=>{try{setSt({...DEFAULT,...JSON.parse(r.result)});}catch(e){alert('File non leggibile.');}};r.readAsText(ev.target.files[0]);};i.click();}}>Importa</button>
+          i.onchange=ev=>{const r=new FileReader();r.onload=()=>{try{setSt(migra({...DEFAULT,...JSON.parse(r.result)}));}catch(e){alert('File non leggibile.');}};r.readAsText(ev.target.files[0]);};i.click();}}>Importa</button>
         <div className="spacer"/>
         <button className="btn ghost small" onClick={()=>{if(confirm('Azzero tutto?'))setSt(DEFAULT);}}>Azzera</button>
       </div>
