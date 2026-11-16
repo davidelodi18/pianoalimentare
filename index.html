@@ -151,6 +151,7 @@ td.n,th.n{font-family:'IBM Plex Mono',monospace;text-align:right}
 });</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
@@ -929,9 +930,21 @@ function App(){
   const primoCaricamento=React.useRef(true);
   useEffect(()=>{try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}},[st]);
 
-  // in ingresso: leggo una volta il documento remoto e, se è più recente, lo adotto
+  // accesso: con Firebase attivo i dati si vedono solo dopo il login Google
+  // utente: undefined = sto controllando, null = non entrato, oggetto = entrato, false = sync spenta
+  const [utente,setUtente]=useState(FIREBASE.projectId?undefined:false);
+  const [pronto,setPronto]=useState(false);   // diventa true dopo la prima lettura remota
   useEffect(()=>{
+    const db=initSync(); if(!db){setUtente(false);return;}
+    firebase.auth().getRedirectResult().catch(e=>console.warn('Login:',e.code));
+    return firebase.auth().onAuthStateChanged(u=>{setUtente(u||null); if(!u) setPronto(false);});
+  },[]);
+
+  // in ingresso: dopo il login leggo il documento remoto e, se è più recente, lo adotto
+  useEffect(()=>{
+    if(!utente) return;
     const db=initSync(); if(!db) return;
+    setSync({stato:'collego',quando:null});
     db.collection('piano').doc(DOC_ID).get().then(d=>{
       if(d.exists){
         const r=d.data();
@@ -939,12 +952,13 @@ function App(){
         if((r.agg||0)>=locale && r.dati) setSt(migra({...DEFAULT,...JSON.parse(r.dati)}));
       }
       setSync({stato:'ok',quando:new Date()});
+      setPronto(true);
     }).catch(e=>setSync({stato:'errore: '+e.code,quando:null}));
-  },[]);
+  },[utente]);
 
   // in uscita: salvo con un ritardo, così non scrivo a ogni tasto
   useEffect(()=>{
-    if(primoCaricamento.current){primoCaricamento.current=false;return;}
+    if(!pronto) return;   // niente salvataggi prima del login e della prima lettura
     const db=initSync(); if(!db) return;
     const t=setTimeout(()=>{
       db.collection('piano').doc(DOC_ID).set({agg:Date.now(),dati:JSON.stringify(st)})
@@ -952,7 +966,7 @@ function App(){
         .catch(e=>setSync({stato:'errore: '+e.code,quando:null}));
     },1500);
     return ()=>clearTimeout(t);
-  },[st]);
+  },[st,pronto]);
   const up=p=>setSt(s=>({...s,...p}));
   const [catLib,setCatLib]=useState('Petto');
   // funzione e non componente: se fosse un componente dichiarato qui dentro, a ogni tasto
@@ -1025,6 +1039,22 @@ function App(){
     }
     setPdfCorso(false);
   };
+
+  const accedi=async()=>{
+    const p=new firebase.auth.GoogleAuthProvider();
+    p.setCustomParameters({prompt:'select_account'});
+    try{await firebase.auth().signInWithPopup(p);}
+    catch(e){
+      if(e.code==='auth/popup-blocked'||e.code==='auth/operation-not-supported-in-this-environment'){await firebase.auth().signInWithRedirect(p);}
+      else if(e.code!=='auth/popup-closed-by-user'&&e.code!=='auth/cancelled-popup-request'){alert('Accesso non riuscito: '+e.code);}
+    }
+  };
+  if(utente===undefined) return(<div style={{maxWidth:420,margin:'80px auto',padding:'0 20px'}}><div className="note">Caricamento…</div></div>);
+  if(utente===null) return(<div style={{maxWidth:420,margin:'80px auto',padding:'0 20px'}}>
+    <h1 style={{marginBottom:8}}>Piano</h1>
+    <div className="note" style={{marginBottom:20}}>Accedi con il tuo account Google (davide.lodi18@gmail.com) per vedere e sincronizzare i dati tra telefono e computer.</div>
+    <button className="btn" onClick={accedi}>Accedi con Google</button>
+  </div>);
 
   return(<>
   <header><div className="wrap">
@@ -2106,6 +2136,7 @@ function App(){
         ? 'Attiva sul progetto '+FIREBASE.projectId+', documento piano/'+DOC_ID+'. I dati si allineano tra telefono e computer entro qualche secondo.'
         : 'Non attiva: i dati restano su questo browser. Per accenderla, apri il file e incolla la configurazione Firebase nel blocco in cima allo script. Finché projectId resta vuoto non cambia niente.'}</div>
       <div className="note" style={{marginTop:8}}>Esporta ogni tanto comunque: è la copia che non dipende da nessun servizio.</div>
+{utente&&<div className="note" style={{marginTop:8}}>Accesso: {utente.email} <button className="btn ghost small" onClick={()=>firebase.auth().signOut()}>Esci</button></div>}
     </div>
   </>}
 
